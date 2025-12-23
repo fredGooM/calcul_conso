@@ -179,6 +179,8 @@ function App() {
             houseMonthlySimulated={simulationState.data.houseMonthlySimulated}
             coefficient={simulationState.data.coefficient}
             annualSimulated={simulationState.data.annual_consumption_simulated}
+            categories={simulationState.data.consumptionByCategory}
+            total={simulationState.data.total}
             equipments={simulationState.data.equipments}
           />
         )}
@@ -360,10 +362,12 @@ type ResultsViewProps = {
   houseMonthlySimulated: Monthly;
   coefficient: number;
   annualSimulated: number;
+  categories: SimulationResponse["consumptionByCategory"];
+  total: SimulationResponse["total"];
   equipments: SimulationResponse["equipments"];
 };
 
-function ResultsView({ houseMonthly, houseMonthlySimulated, coefficient, annualSimulated, equipments }: ResultsViewProps) {
+function ResultsView({ houseMonthly, houseMonthlySimulated, coefficient, annualSimulated, categories, total, equipments }: ResultsViewProps) {
   return (
     <div className="stack results">
       <div className="panel">
@@ -375,6 +379,12 @@ function ResultsView({ houseMonthly, houseMonthlySimulated, coefficient, annualS
       <div className="panel">
         <h3>Maison (simulée)</h3>
         <MonthlyTable monthly={houseMonthlySimulated} />
+      </div>
+
+      <div className="panel">
+        <h3>Par catégorie (réel)</h3>
+        <CategoryTable categories={categories} />
+        <div className="muted">Total annuel: {total.annual} kWh</div>
       </div>
 
       <div className="panel">
@@ -418,6 +428,57 @@ function MonthlyTable({ monthly }: MonthlyTableProps) {
             <td key={month}>{value}</td>
           ))}
         </tr>
+      </tbody>
+    </table>
+  );
+}
+
+type CategoryTableProps = {
+  categories: SimulationResponse["consumptionByCategory"];
+};
+
+function CategoryTable({ categories }: CategoryTableProps) {
+  const rows = Object.entries(categories);
+  if (rows.length === 0) return <p className="muted">Aucune donnée.</p>;
+  return (
+    <table className="table compact">
+      <thead>
+        <tr>
+          <th>Catégorie</th>
+          <th>Jan</th>
+          <th>Feb</th>
+          <th>Mar</th>
+          <th>Apr</th>
+          <th>May</th>
+          <th>Jun</th>
+          <th>Jul</th>
+          <th>Aug</th>
+          <th>Sep</th>
+          <th>Oct</th>
+          <th>Nov</th>
+          <th>Dec</th>
+          <th>Annuel</th>
+        </tr>
+      </thead>
+      <tbody>
+        {rows.map(([cat, data]) => (
+          <tr key={cat}>
+            <td>{cat}</td>
+            <td>{data.monthly.january}</td>
+            <td>{data.monthly.february}</td>
+            <td>{data.monthly.march}</td>
+            <td>{data.monthly.april}</td>
+            <td>{data.monthly.may}</td>
+            <td>{data.monthly.june}</td>
+            <td>{data.monthly.july}</td>
+            <td>{data.monthly.august}</td>
+            <td>{data.monthly.septembre}</td>
+            <td>{data.monthly.october}</td>
+            <td>{data.monthly.november}</td>
+            <td>{data.monthly.december}</td>
+            <td>{data.annual}</td>
+          </tr>
+        ))}
       </tbody>
     </table>
   );

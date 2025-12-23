@@ -94,6 +94,17 @@ export type SimulationResponse = {
   annual_consumption_simulated: number;
   coefficient: number;
   climate_zone: Climate;
+  consumptionByCategory: Record<
+    string,
+    {
+      monthly: Monthly;
+      annual: number;
+    }
+  >;
+  total: {
+    monthly: Monthly;
+    annual: number;
+  };
   equipments: Array<{
     equipment: {
       id: string;
