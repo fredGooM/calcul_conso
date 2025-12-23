@@ -4,10 +4,12 @@ import {
   CatalogEquipment,
   CatalogResponse,
   Climate,
+  EquipementDescriptionEntry,
   HouseInput,
   Monthly,
   SelectedEquipment,
-  SimulationResponse
+  SimulationResponse,
+  TabledayEntry
 } from "./api/client";
 import { Bar, BarChart, CartesianGrid, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis, Cell } from "recharts";
 import "./index.css";
@@ -62,8 +64,14 @@ function App() {
   const [climateZone, setClimateZone] = useState<Climate | null>(null);
   const [climateLoading, setClimateLoading] = useState(false);
   const [climateError, setClimateError] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<"form" | "viz">("form");
+  const [activeTab, setActiveTab] = useState<"form" | "viz" | "solar" | "config">("form");
   const [activeSubTab, setActiveSubTab] = useState<"viz" | "solar">("viz");
+  const [configData, setConfigData] = useState<{
+    equipements?: EquipementDescriptionEntry[];
+    tableday?: TabledayEntry[];
+    loading: boolean;
+    error?: string;
+  }>({ loading: false });
 
   useEffect(() => {
     async function loadCatalog() {
@@ -144,6 +152,17 @@ function App() {
     }
   };
 
+  const handleOpenConfig = async () => {
+    setActiveTab("config");
+    setConfigData((prev) => ({ ...prev, loading: true, error: undefined }));
+    try {
+      const [equipements, tableday] = await Promise.all([api.getEquipementDescription(), api.getTableday()]);
+      setConfigData({ equipements, tableday, loading: false });
+    } catch (error) {
+      setConfigData({ loading: false, error: (error as Error).message });
+    }
+  };
+
   return (
     <main className="app-shell">
       <section className="card">
@@ -160,10 +179,13 @@ function App() {
               Saisie
             </button>
             <button className={activeTab === "viz" ? "tab active" : "tab"} onClick={() => setActiveTab("viz")} disabled={!simulationState.data}>
-              Visualisation
+              Consommations
             </button>
             <button className={activeTab === "solar" ? "tab active" : "tab"} onClick={() => setActiveTab("solar")} disabled={!simulationState.data}>
-              Solaire
+              Conso en journée
+            </button>
+            <button className={activeTab === "config" ? "tab active" : "tab"} onClick={() => handleOpenConfig()}>
+              Config
             </button>
           </div>
           {simulationState.data && (
@@ -234,6 +256,11 @@ function App() {
           <div className="stack results">
             {!simulationState.data && <p className="muted">Lancez une simulation pour visualiser les consommations.</p>}
             {simulationState.data && <SolarSection sim={simulationState.data} />}
+          </div>
+        )}
+        {activeTab === "config" && (
+          <div className="stack results">
+            <ConfigSection data={configData} />
           </div>
         )}
       </section>
@@ -606,26 +633,135 @@ function SolarSection({ sim }: SolarSectionProps) {
   const pct = annualTotal === 0 ? 0 : (annualSolar / annualTotal) * 100;
 
   return (
-    <div className="grid two">
-      <div className="panel">
-        <h3>Consommation mensuelle (total vs solaire)</h3>
-        <ResponsiveContainer width="100%" height={320}>
-          <BarChart data={barData}>
-            <CartesianGrid strokeDasharray="3 3" />
-            <XAxis dataKey="month" />
-            <YAxis />
-            <Tooltip content={<SolarTooltip />} />
-            <Bar dataKey="solar" stackId="s" fill="#f59e0b" name="Solaire" isAnimationActive={false} />
-            <Bar dataKey="nonSolar" stackId="s" fill="#2563eb" name="Total hors solaire" isAnimationActive={false} />
-          </BarChart>
-        </ResponsiveContainer>
+    <div className="stack">
+      <div className="grid two">
+        <div className="panel">
+          <h3>Consommation mensuelle (total vs heures solaires)</h3>
+          <ResponsiveContainer width="100%" height={320}>
+            <BarChart data={barData}>
+              <CartesianGrid strokeDasharray="3 3" />
+              <XAxis dataKey="month" />
+              <YAxis />
+              <Tooltip content={<SolarTooltip />} />
+              <Bar dataKey="solar" stackId="s" fill="#f59e0b" name="Solaire" isAnimationActive={false} />
+              <Bar dataKey="nonSolar" stackId="s" fill="#2563eb" name="Total hors solaire" isAnimationActive={false} />
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
+        <div className="panel">
+          <h3>Indicateur annuel</h3>
+          <p className="muted">Total annuel : {annualTotal} kWh</p>
+          <p className="muted">Dont en heures solaires : {annualSolar} kWh</p>
+          <h2>{pct.toFixed(1)}% couvert pendant les heures solaires</h2>
+        </div>
       </div>
       <div className="panel">
-        <h3>Indicateur annuel</h3>
-        <p className="muted">Total annuel : {annualTotal} kWh</p>
-        <p className="muted">Dont solaire : {annualSolar} kWh</p>
-        <h2>{pct.toFixed(1)}% couvert pendant les heures solaires</h2>
+        <h3>Tableau mensuel solaire</h3>
+        <MonthlyTable monthly={sim.houseMonthlySolar} />
+        <div className="muted">Annuel solaire : {annualSolar} kWh</div>
       </div>
+    </div>
+  );
+}
+
+type ConfigSectionProps = {
+  data: {
+    equipements?: EquipementDescriptionEntry[];
+    tableday?: TabledayEntry[];
+    loading: boolean;
+    error?: string;
+  };
+};
+
+function ConfigSection({ data }: ConfigSectionProps) {
+  if (data.loading) return <p>Chargement de la configuration...</p>;
+  if (data.error) return <p className="error">{data.error}</p>;
+  return (
+    <div className="stack">
+      <div className="panel">
+        <h3>equipement_description</h3>
+        {data.equipements ? <EquipementTable rows={data.equipements} /> : <p className="muted">Aucune donnée.</p>}
+      </div>
+      <div className="panel">
+        <h3>tableday_bycategory</h3>
+        {data.tableday ? <TabledayTable rows={data.tableday} /> : <p className="muted">Aucune donnée.</p>}
+      </div>
+    </div>
+  );
+}
+
+function EquipementTable({ rows }: { rows: EquipementDescriptionEntry[] }) {
+  return (
+    <div className="table-wrapper">
+      <table className="table compact">
+        <thead>
+          <tr>
+            <th>equipment_category</th>
+            <th>equipment_type</th>
+            <th>label</th>
+            <th>tableday_bycategory</th>
+            <th>consumption_unit</th>
+            <th>equipment_energy_label</th>
+            <th>consumption</th>
+            <th>presence_sensitive</th>
+            <th>isolation_sensitive</th>
+            <th>energybox_sensitive</th>
+            <th>solarhours_perday_percent</th>
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((row, idx) => (
+            <tr key={idx}>
+              <td>{row.equipment_category}</td>
+              <td>{row.equipment_type}</td>
+              <td>{row.label}</td>
+              <td>{row.tableday_bycategory}</td>
+              <td>{row.consumption_unit}</td>
+              <td>{row.equipment_energy_label}</td>
+              <td>{row.consumption}</td>
+              <td>{String(row.presence_sensitive)}</td>
+              <td>{String(row.isolation_sensitive)}</td>
+              <td>{String(row.energybox_sensitive)}</td>
+              <td>{row.solarhours_perday_percent ?? "—"}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+function TabledayTable({ rows }: { rows: TabledayEntry[] }) {
+  return (
+    <div className="table-wrapper">
+      <table className="table compact">
+        <thead>
+          <tr>
+            <th>category</th>
+            <th>month</th>
+            <th>H1_days</th>
+            <th>H2_days</th>
+            <th>H3_days</th>
+            <th>H1</th>
+            <th>H2</th>
+            <th>H3</th>
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((row, idx) => (
+            <tr key={idx}>
+              <td>{row.category}</td>
+              <td>{row.month}</td>
+              <td>{row.H1_days}</td>
+              <td>{row.H2_days}</td>
+              <td>{row.H3_days}</td>
+              <td>{row.H1}</td>
+              <td>{row.H2}</td>
+              <td>{row.H3}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
     </div>
   );
 }

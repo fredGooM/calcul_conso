@@ -218,6 +218,11 @@ select {
   padding: 6px;
 }
 
+.table-wrapper {
+  width: 100%;
+  overflow: auto;
+}
+
 .muted {
   color: #64748b;
   margin: 6px 0;

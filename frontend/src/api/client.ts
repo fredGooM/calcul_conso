@@ -36,7 +36,9 @@ async function safeParseError(resp: Response): Promise<string | null> {
 export const api = {
   getCatalog: () => request<CatalogResponse>("/api/catalog"),
   getClimateZone: (zip: string) => request<ClimateZoneResponse>(`/utils/climate-zone?zip=${encodeURIComponent(zip)}`),
-  runSimulation: (payload: SimulationRequest) => request<SimulationResponse>("/api/simulations", { method: "POST", body: payload })
+  runSimulation: (payload: SimulationRequest) => request<SimulationResponse>("/api/simulations", { method: "POST", body: payload }),
+  getEquipementDescription: () => request<EquipementDescriptionEntry[]>("/api/equipement_description"),
+  getTableday: () => request<TabledayEntry[]>("/api/tableday")
 };
 
 // Types
@@ -140,4 +142,29 @@ export type ClimateZoneResponse = {
   zip: string;
   department: string;
   climate_zone: Climate;
+};
+
+export type EquipementDescriptionEntry = {
+  equipment_category: string;
+  equipment_type: string;
+  label: string;
+  tableday_bycategory: "heating" | "air_cond" | "pool" | "other";
+  consumption_unit: "house_surface" | "number_person" | "pool_volume" | "number_equipement";
+  equipment_energy_label: string;
+  consumption: number;
+  presence_sensitive: boolean;
+  isolation_sensitive: boolean;
+  energybox_sensitive: boolean;
+  solarhours_perday_percent?: number;
+};
+
+export type TabledayEntry = {
+  category: "heating" | "air_cond" | "pool" | "other";
+  month: string;
+  H1_days: number;
+  H2_days: number;
+  H3_days: number;
+  H1: number;
+  H2: number;
+  H3: number;
 };
