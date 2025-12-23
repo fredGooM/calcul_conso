@@ -41,16 +41,22 @@ git push -u origin main
 En rolling:
 git add .
 git commit -m "Description du changement"
-git push
+git push -u origin main
 
 voir l'historique: git log --oneline
 
 ## Scripts utiles (backend)
-- `npm run dev` : démarre le serveur en mode développement.
-- `npm run build` : compile TypeScript.
-- `npm run start` : démarre le serveur compilé.
-- `npm run prisma:generate` : génère le client Prisma.
-- `npm run prisma:migrate` : applique les migrations.
+- `npm run dev` : démarre le serveur en mode développement.
+- `npm run build` : compile TypeScript.
+- `npm run start` : démarre le serveur compilé.
+- `npm run prisma:generate` : génère le client Prisma.
+- `npm run prisma:migrate` : applique les migrations.
+
+## Endpoints clés (backend)
+- `GET /api/catalog`
+- `POST /api/simulations` (payload maison + équipements, champ `annual_consumption_kWh`)
+- `GET /house/:id/houseMonthly_simulated`
+- `GET /house/:id/houseMonthly`
 
 
 ## Bash pour tester
@@ -78,4 +84,3 @@ curl -s -X POST http://localhost:4000/api/simulations \
             { "equipment_category": "multimedia", "equipment_type": "box_Internet", "number_equipement": 2 }
     ]
   }' | jq .
-
