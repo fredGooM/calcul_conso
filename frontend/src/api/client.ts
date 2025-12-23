@@ -1,4 +1,6 @@
-const API_BASE = import.meta.env.VITE_API_URL?.replace(/\/$/, "") || "";
+// Normalize base: accept values with or without trailing "/api"
+const rawBase = import.meta.env.VITE_API_URL?.replace(/\/$/, "") || "";
+const API_BASE = rawBase.endsWith("/api") ? rawBase.slice(0, -4) : rawBase;
 
 type HttpMethod = "GET" | "POST";
 
@@ -91,6 +93,8 @@ export type SimulationResponse = {
   houseId: string;
   houseMonthlySimulated: Monthly;
   houseMonthly: Monthly;
+  houseMonthlySolar: Monthly & { annual_total?: number };
+  annual_consumption_solar: number;
   annual_consumption_simulated: number;
   coefficient: number;
   climate_zone: Climate;

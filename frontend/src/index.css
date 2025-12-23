@@ -30,6 +30,45 @@ body {
   width: 100%;
 }
 
+.tabs {
+  display: flex;
+  gap: 10px;
+  margin: 12px 0;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.tab-group {
+  display: flex;
+  gap: 10px;
+}
+
+.tab-actions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.tab {
+  border: 1px solid #cbd5e1;
+  background: #fff;
+  padding: 10px 14px;
+  border-radius: 10px;
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.tab.active {
+  background: #2563eb;
+  color: #fff;
+  border-color: #2563eb;
+}
+
+.tab:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
 .card-header {
   display: flex;
   align-items: center;
@@ -141,6 +180,11 @@ select {
   cursor: pointer;
 }
 
+.btn-orange {
+  background: #f97316;
+  box-shadow: 0 4px 12px rgba(249, 115, 22, 0.3);
+}
+
 .btn.secondary {
   background: #0f172a;
   box-shadow: none;
@@ -201,4 +245,40 @@ select {
   justify-content: space-between;
   align-items: center;
   margin-bottom: 8px;
+}
+
+.tooltip {
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  box-shadow: 0 4px 12px rgba(15, 23, 42, 0.12);
+  padding: 8px 10px;
+  border-radius: 8px;
+  font-size: 13px;
+}
+
+.tooltip-label {
+  font-weight: 700;
+  margin-bottom: 6px;
+}
+
+.tooltip-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  color: #0f172a;
+}
+
+.tooltip-row.total {
+  border-top: 1px solid #e2e8f0;
+  padding-top: 6px;
+  margin-top: 6px;
+  font-weight: 700;
+}
+
+.dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  display: inline-block;
 }

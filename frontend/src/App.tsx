@@ -9,6 +9,7 @@ import {
   SelectedEquipment,
   SimulationResponse
 } from "./api/client";
+import { Bar, BarChart, CartesianGrid, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis, Cell } from "recharts";
 import "./index.css";
 
 const defaultHouse: HouseInput = {
@@ -21,6 +22,22 @@ const defaultHouse: HouseInput = {
   zip_code: "34470",
   water_heater_during_day: false
 };
+
+const defaultSelectedEquipments: SelectedEquipment[] = [
+  { equipment_category: "chauffage", equipment_type: "radiateur", number_equipement: 1 },
+  { equipment_category: "climatisation", equipment_type: "pac_airair", number_equipement: 1 },
+  { equipment_category: "chauffe_eau", equipment_type: "ecs_electrique", number_equipement: 1 },
+  { equipment_category: "piscine", equipment_type: "piscine", number_equipement: 1 },
+  { equipment_category: "electroménager", equipment_type: "refrigerateur", number_equipement: 2 },
+  { equipment_category: "electroménager", equipment_type: "lave-linge", number_equipement: 1 },
+  { equipment_category: "electroménager", equipment_type: "lave-vaisselle", number_equipement: 1 },
+  { equipment_category: "electroménager", equipment_type: "sèche-linge", number_equipement: 1 },
+  { equipment_category: "electroménager", equipment_type: "congélateur", number_equipement: 1 },
+  { equipment_category: "multimedia", equipment_type: "tv", number_equipement: 1 },
+  { equipment_category: "multimedia", equipment_type: "box_Internet", number_equipement: 1 },
+  { equipment_category: "multimedia", equipment_type: "pc", number_equipement: 2 },
+  { equipment_category: "talon", equipment_type: "talon", number_equipement: 1 }
+];
 
 type CatalogState = {
   data?: CatalogResponse;
@@ -40,11 +57,13 @@ function App() {
   const [selectedCategory, setSelectedCategory] = useState<string>("");
   const [selectedEquipmentType, setSelectedEquipmentType] = useState<string>("");
   const [equipmentCount, setEquipmentCount] = useState<number>(1);
-  const [selectedEquipments, setSelectedEquipments] = useState<SelectedEquipment[]>([]);
+  const [selectedEquipments, setSelectedEquipments] = useState<SelectedEquipment[]>(defaultSelectedEquipments);
   const [simulationState, setSimulationState] = useState<SimulationState>({ loading: false });
   const [climateZone, setClimateZone] = useState<Climate | null>(null);
   const [climateLoading, setClimateLoading] = useState(false);
   const [climateError, setClimateError] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState<"form" | "viz">("form");
+  const [activeSubTab, setActiveSubTab] = useState<"viz" | "solar">("viz");
 
   useEffect(() => {
     async function loadCatalog() {
@@ -133,56 +152,89 @@ function App() {
             <p className="eyebrow">Energy Sim</p>
             <h1>Simulation de consommation</h1>
           </div>
-          <span className="badge">React + Vite</span>
         </header>
 
-        <div className="grid two">
-          <div className="panel">
-            <h2>Maison</h2>
-            <HouseForm house={house} onChange={handleHouseChange} climateZone={climateZone} climateLoading={climateLoading} climateError={climateError} />
+        <div className="tabs">
+          <div className="tab-group">
+            <button className={activeTab === "form" ? "tab active" : "tab"} onClick={() => setActiveTab("form")}>
+              Saisie
+            </button>
+            <button className={activeTab === "viz" ? "tab active" : "tab"} onClick={() => setActiveTab("viz")} disabled={!simulationState.data}>
+              Visualisation
+            </button>
+            <button className={activeTab === "solar" ? "tab active" : "tab"} onClick={() => setActiveTab("solar")} disabled={!simulationState.data}>
+              Solaire
+            </button>
           </div>
+          {simulationState.data && (
+            <span className="badge">Consommation annuelle : {simulationState.data.total.annual} kWh</span>
+          )}
+          <div className="tab-actions">
+            <button className="btn btn-orange" onClick={handleSimulate} disabled={simulationState.loading || catalogState.loading}>
+              {simulationState.loading ? "Simulation..." : "Simuler"}
+            </button>
+            {simulationState.error && <span className="error">Erreur: {simulationState.error}</span>}
+          </div>
+        </div>
 
-          <div className="panel">
-            <h2>Équipements</h2>
-            {catalogState.loading && <p>Chargement du catalogue...</p>}
-            {catalogState.error && <p className="error">Erreur: {catalogState.error}</p>}
-            {catalogState.data && (
+        {activeTab === "form" && (
+          <>
+            <div className="grid two">
+              <div className="panel">
+                <h2>Maison</h2>
+                <HouseForm house={house} onChange={handleHouseChange} climateZone={climateZone} climateLoading={climateLoading} climateError={climateError} />
+              </div>
+
+              <div className="panel">
+                <h2>Équipements</h2>
+                {catalogState.loading && <p>Chargement du catalogue...</p>}
+                {catalogState.error && <p className="error">Erreur: {catalogState.error}</p>}
+                {catalogState.data && (
+                  <>
+                    <EquipmentSelector
+                      categories={catalogState.data.categories}
+                      equipmentByCategory={catalogState.data.equipmentByCategory}
+                      selectedCategory={selectedCategory}
+                      onCategoryChange={setSelectedCategory}
+                      selectedEquipmentType={selectedEquipmentType}
+                      onEquipmentChange={setSelectedEquipmentType}
+                      onAdd={handleAddEquipment}
+                      currentEquipment={currentSelectedEquipment}
+                      equipmentCount={equipmentCount}
+                      setEquipmentCount={setEquipmentCount}
+                    />
+                    <SelectedEquipmentsList items={selectedEquipments} onRemove={handleRemoveEquipment} />
+                  </>
+                )}
+              </div>
+            </div>
+          </>
+        )}
+
+        {activeTab === "viz" && (
+          <div className="stack results">
+            {!simulationState.data && <p className="muted">Lancez une simulation pour visualiser les consommations.</p>}
+            {simulationState.data && (
               <>
-                <EquipmentSelector
-                  categories={catalogState.data.categories}
-                  equipmentByCategory={catalogState.data.equipmentByCategory}
-                  selectedCategory={selectedCategory}
-                  onCategoryChange={setSelectedCategory}
-                  selectedEquipmentType={selectedEquipmentType}
-                  onEquipmentChange={setSelectedEquipmentType}
-                  onAdd={handleAddEquipment}
-                  currentEquipment={currentSelectedEquipment}
-                  equipmentCount={equipmentCount}
-                  setEquipmentCount={setEquipmentCount}
+                <VisualizationSection sim={simulationState.data} />
+                <ResultsView
+                  houseMonthly={simulationState.data.houseMonthly}
+                  houseMonthlySimulated={simulationState.data.houseMonthlySimulated}
+                  coefficient={simulationState.data.coefficient}
+                  annualSimulated={simulationState.data.annual_consumption_simulated}
+                  categories={simulationState.data.consumptionByCategory}
+                  total={simulationState.data.total}
+                  equipments={simulationState.data.equipments}
                 />
-                <SelectedEquipmentsList items={selectedEquipments} onRemove={handleRemoveEquipment} />
               </>
             )}
           </div>
-        </div>
-
-        <div className="actions">
-          <button className="btn" onClick={handleSimulate} disabled={simulationState.loading || catalogState.loading}>
-            {simulationState.loading ? "Simulation..." : "Simuler"}
-          </button>
-          {simulationState.error && <span className="error">Erreur: {simulationState.error}</span>}
-        </div>
-
-        {simulationState.data && (
-          <ResultsView
-            houseMonthly={simulationState.data.houseMonthly}
-            houseMonthlySimulated={simulationState.data.houseMonthlySimulated}
-            coefficient={simulationState.data.coefficient}
-            annualSimulated={simulationState.data.annual_consumption_simulated}
-            categories={simulationState.data.consumptionByCategory}
-            total={simulationState.data.total}
-            equipments={simulationState.data.equipments}
-          />
+        )}
+        {activeTab === "solar" && (
+          <div className="stack results">
+            {!simulationState.data && <p className="muted">Lancez une simulation pour visualiser les consommations.</p>}
+            {simulationState.data && <SolarSection sim={simulationState.data} />}
+          </div>
         )}
       </section>
     </main>
@@ -371,7 +423,7 @@ function ResultsView({ houseMonthly, houseMonthlySimulated, coefficient, annualS
   return (
     <div className="stack results">
       <div className="panel">
-        <h3>Maison (recalé)</h3>
+        <h3>Maison (au réel)</h3>
         <MonthlyTable monthly={houseMonthly} />
         <div className="muted">Coef. de recalage: {coefficient.toFixed(3)} | Conso simulée: {annualSimulated} kWh</div>
       </div>
@@ -481,6 +533,231 @@ function CategoryTable({ categories }: CategoryTableProps) {
         ))}
       </tbody>
     </table>
+  );
+}
+
+type VisualizationSectionProps = {
+  sim: SimulationResponse;
+};
+
+function VisualizationSection({ sim }: VisualizationSectionProps) {
+  const barData = stackedMonthlyData(sim.consumptionByCategory);
+  const categoryKeys = Object.keys(sim.consumptionByCategory);
+  const pieData = categoryPieData(sim.consumptionByCategory, sim.total.annual);
+  const hasCategories = categoryKeys.length > 0;
+
+  return (
+    <div className="grid two">
+      <div className="panel">
+        <h3>Consommation mensuelle (réelle)</h3>
+        {!hasCategories && <p className="muted">Aucune donnée catégorie.</p>}
+        {hasCategories && (
+          <ResponsiveContainer width="100%" height={320}>
+            <BarChart data={barData}>
+              <CartesianGrid strokeDasharray="3 3" />
+              <XAxis dataKey="month" />
+              <YAxis />
+              <Tooltip content={<StackedTooltip />} />
+              {categoryKeys.map((key, index) => (
+                <Bar
+                  key={key}
+                  dataKey={key}
+                  stackId="monthly"
+                  fill={pieColors[index % pieColors.length]}
+                  name={key}
+                  isAnimationActive={false}
+                />
+              ))}
+            </BarChart>
+          </ResponsiveContainer>
+        )}
+      </div>
+
+      <div className="panel">
+        <h3>Consommation annuelle par catégorie (réelle)</h3>
+        <ResponsiveContainer width="100%" height={320}>
+          <PieChart>
+            <Pie data={pieData} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={100} label>
+              {pieData.map((entry, index) => (
+                <Cell key={`cell-${entry.name}`} fill={pieColors[index % pieColors.length]} />
+              ))}
+            </Pie>
+            <Tooltip
+              formatter={(value: number, _name, entry: any) => {
+                const pct = entry.payload.percentage.toFixed(1);
+                return [`${value} kWh (${pct}%)`, entry.payload.name];
+              }}
+            />
+          </PieChart>
+        </ResponsiveContainer>
+      </div>
+    </div>
+  );
+}
+
+type SolarSectionProps = {
+  sim: SimulationResponse;
+};
+
+function SolarSection({ sim }: SolarSectionProps) {
+  const barData = solarStackedData(sim.houseMonthly, sim.houseMonthlySolar);
+  const annualTotal = sim.total.annual;
+  const annualSolar = sim.annual_consumption_solar;
+  const pct = annualTotal === 0 ? 0 : (annualSolar / annualTotal) * 100;
+
+  return (
+    <div className="grid two">
+      <div className="panel">
+        <h3>Consommation mensuelle (total vs solaire)</h3>
+        <ResponsiveContainer width="100%" height={320}>
+          <BarChart data={barData}>
+            <CartesianGrid strokeDasharray="3 3" />
+            <XAxis dataKey="month" />
+            <YAxis />
+            <Tooltip content={<SolarTooltip />} />
+            <Bar dataKey="solar" stackId="s" fill="#f59e0b" name="Solaire" isAnimationActive={false} />
+            <Bar dataKey="nonSolar" stackId="s" fill="#2563eb" name="Total hors solaire" isAnimationActive={false} />
+          </BarChart>
+        </ResponsiveContainer>
+      </div>
+      <div className="panel">
+        <h3>Indicateur annuel</h3>
+        <p className="muted">Total annuel : {annualTotal} kWh</p>
+        <p className="muted">Dont solaire : {annualSolar} kWh</p>
+        <h2>{pct.toFixed(1)}% couvert pendant les heures solaires</h2>
+      </div>
+    </div>
+  );
+}
+
+const monthsOrdered: Array<keyof Monthly> = [
+  "january",
+  "february",
+  "march",
+  "april",
+  "may",
+  "june",
+  "july",
+  "august",
+  "septembre",
+  "october",
+  "november",
+  "december"
+];
+
+const monthLabels: Record<keyof Monthly, string> = {
+  january: "Jan",
+  february: "Feb",
+  march: "Mar",
+  april: "Apr",
+  may: "May",
+  june: "Jun",
+  july: "Jul",
+  august: "Aug",
+  septembre: "Sep",
+  october: "Oct",
+  november: "Nov",
+  december: "Dec"
+};
+
+function monthlyToChart(monthly: Monthly) {
+  return monthsOrdered.map((m) => ({ month: monthLabels[m], value: monthly[m] }));
+}
+
+const pieColors = ["#2563eb", "#0ea5e9", "#f59e0b", "#10b981", "#8b5cf6", "#ef4444"];
+
+function stackedMonthlyData(categories: SimulationResponse["consumptionByCategory"]) {
+  const base = monthsOrdered.map((m) => {
+    const row: Record<string, string | number> = { month: monthLabels[m] };
+    for (const [cat, data] of Object.entries(categories)) {
+      row[cat] = data.monthly[m];
+    }
+    return row;
+  });
+  return base;
+}
+
+function categoryPieData(
+  categories: SimulationResponse["consumptionByCategory"],
+  totalAnnual: number
+): Array<{ name: string; value: number; percentage: number }> {
+  if (!totalAnnual || totalAnnual === 0) {
+    return Object.keys(categories).map((cat) => ({ name: cat, value: 0, percentage: 0 }));
+  }
+  return Object.entries(categories).map(([name, data]) => ({
+    name,
+    value: data.annual,
+    percentage: (data.annual / totalAnnual) * 100
+  }));
+}
+
+function solarStackedData(totalMonthly: Monthly, solarMonthly: SimulationResponse["houseMonthlySolar"]) {
+  return monthsOrdered.map((m) => ({
+    month: monthLabels[m],
+    solar: solarMonthly[m],
+    nonSolar: totalMonthly[m] - solarMonthly[m] < 0 ? 0 : totalMonthly[m] - solarMonthly[m]
+  }));
+}
+
+type StackedTooltipProps = {
+  active?: boolean;
+  payload?: any[];
+  label?: string;
+};
+
+function StackedTooltip({ active, payload, label }: StackedTooltipProps) {
+  if (!active || !payload || payload.length === 0) return null;
+  const items = payload
+    .filter((p) => p.value && p.value !== 0)
+    .map((p) => ({
+      name: p.name as string,
+      value: p.value as number,
+      color: (p.color as string) || (p.fill as string)
+    }));
+  if (items.length === 0) return null;
+  const total = items.reduce((sum, item) => sum + item.value, 0);
+  return (
+    <div className="tooltip">
+      <div className="tooltip-label">{label}</div>
+      {items.map((item) => (
+        <div key={item.name} className="tooltip-row">
+          <span className="dot" style={{ background: item.color }}></span>
+          <span>{item.name}</span>
+          <span>{item.value} kWh</span>
+        </div>
+      ))}
+      <div className="tooltip-row total">
+        <span>Total</span>
+        <span>{total} kWh</span>
+      </div>
+    </div>
+  );
+}
+
+type SolarTooltipProps = StackedTooltipProps;
+
+function SolarTooltip({ active, payload, label }: SolarTooltipProps) {
+  if (!active || !payload || payload.length === 0) return null;
+  const total = payload.reduce((sum, p) => sum + (p.value as number), 0);
+  const solarEntry = payload.find((p) => p.dataKey === "solar");
+  const solarValue = solarEntry ? (solarEntry.value as number) : 0;
+  const pct = total === 0 ? 0 : (solarValue / total) * 100;
+  return (
+    <div className="tooltip">
+      <div className="tooltip-label">{label}</div>
+      <div className="tooltip-row">
+        <span>Solaire</span>
+        <span>{solarValue} kWh</span>
+      </div>
+      <div className="tooltip-row">
+        <span>Total</span>
+        <span>{total} kWh</span>
+      </div>
+      <div className="tooltip-row total">
+        <span>Part solaire</span>
+        <span>{pct.toFixed(1)}%</span>
+      </div>
+    </div>
   );
 }
 
