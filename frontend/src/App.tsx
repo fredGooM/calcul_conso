@@ -26,10 +26,10 @@ const defaultHouse: HouseInput = {
 };
 
 const defaultSelectedEquipments: SelectedEquipment[] = [
-  { equipment_category: "chauffage", equipment_type: "radiateur", number_equipement: 1 },
-  { equipment_category: "climatisation", equipment_type: "pac_airair", number_equipement: 1 },
-  { equipment_category: "chauffe_eau", equipment_type: "ecs_electrique", number_equipement: 1 },
-  { equipment_category: "piscine", equipment_type: "piscine", number_equipement: 1 },
+  { equipment_category: "chauffage", equipment_type: "radiateur", number_equipement: 1, applicable_surface: defaultHouse.surface },
+  { equipment_category: "climatisation", equipment_type: "pac_airair", number_equipement: 1, applicable_surface: defaultHouse.surface },
+  { equipment_category: "chauffe_eau", equipment_type: "ecs_electrique", number_equipement: 1, applicable_persons: defaultHouse.number_person },
+  { equipment_category: "piscine", equipment_type: "piscine", number_equipement: 1, pool_volume: defaultHouse.pool_volume },
   { equipment_category: "electroménager", equipment_type: "refrigerateur", number_equipement: 2 },
   { equipment_category: "electroménager", equipment_type: "lave-linge", number_equipement: 1 },
   { equipment_category: "electroménager", equipment_type: "lave-vaisselle", number_equipement: 1 },
@@ -64,7 +64,7 @@ function App() {
   const [climateZone, setClimateZone] = useState<Climate | null>(null);
   const [climateLoading, setClimateLoading] = useState(false);
   const [climateError, setClimateError] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<"form" | "viz" | "solar" | "config">("form");
+  const [activeTab, setActiveTab] = useState<"form" | "enedis" | "viz" | "solar" | "config">("form");
   const [activeSubTab, setActiveSubTab] = useState<"viz" | "solar">("viz");
   const [configData, setConfigData] = useState<{
     equipements?: EquipementDescriptionEntry[];
@@ -128,7 +128,11 @@ function App() {
     const newItem: SelectedEquipment = {
       equipment_category: selectedCategory,
       equipment_type: selectedEquipmentType,
-      number_equipement: count
+      number_equipement: count,
+      applicable_surface:
+        selectedCategory === "chauffage" || selectedCategory === "climatisation" ? house.surface : undefined,
+      applicable_persons: selectedCategory === "chauffe_eau" ? house.number_person : undefined,
+      pool_volume: selectedCategory === "piscine" ? house.pool_volume : undefined
     };
     setSelectedEquipments((prev) => [...prev, newItem]);
     setEquipmentCount(1);
@@ -178,6 +182,9 @@ function App() {
             <button className={activeTab === "form" ? "tab active" : "tab"} onClick={() => setActiveTab("form")}>
               Saisie
             </button>
+            <button className={activeTab === "enedis" ? "tab active" : "tab"} onClick={() => setActiveTab("enedis")}>
+              Enedis
+            </button>
             <button className={activeTab === "viz" ? "tab active" : "tab"} onClick={() => setActiveTab("viz")} disabled={!simulationState.data}>
               Consommations
             </button>
@@ -201,34 +208,40 @@ function App() {
 
         {activeTab === "form" && (
           <>
-            <div className="grid two">
-              <div className="panel">
-                <h2>Maison</h2>
-                <HouseForm house={house} onChange={handleHouseChange} climateZone={climateZone} climateLoading={climateLoading} climateError={climateError} />
-              </div>
+            <div className="panel">
+              <h2>Maison</h2>
+              <HouseForm house={house} onChange={handleHouseChange} climateZone={climateZone} climateLoading={climateLoading} climateError={climateError} />
+            </div>
 
-              <div className="panel">
-                <h2>Équipements</h2>
-                {catalogState.loading && <p>Chargement du catalogue...</p>}
-                {catalogState.error && <p className="error">Erreur: {catalogState.error}</p>}
-                {catalogState.data && (
-                  <>
-                    <EquipmentSelector
-                      categories={catalogState.data.categories}
-                      equipmentByCategory={catalogState.data.equipmentByCategory}
-                      selectedCategory={selectedCategory}
-                      onCategoryChange={setSelectedCategory}
-                      selectedEquipmentType={selectedEquipmentType}
-                      onEquipmentChange={setSelectedEquipmentType}
-                      onAdd={handleAddEquipment}
-                      currentEquipment={currentSelectedEquipment}
-                      equipmentCount={equipmentCount}
-                      setEquipmentCount={setEquipmentCount}
-                    />
-                    <SelectedEquipmentsList items={selectedEquipments} onRemove={handleRemoveEquipment} />
-                  </>
-                )}
-              </div>
+            <div className="panel">
+              <h2>Équipements</h2>
+              {catalogState.loading && <p>Chargement du catalogue...</p>}
+              {catalogState.error && <p className="error">Erreur: {catalogState.error}</p>}
+              {catalogState.data && (
+                <>
+                  <EquipmentSelector
+                    categories={catalogState.data.categories}
+                    equipmentByCategory={catalogState.data.equipmentByCategory}
+                    selectedCategory={selectedCategory}
+                    onCategoryChange={setSelectedCategory}
+                    selectedEquipmentType={selectedEquipmentType}
+                    onEquipmentChange={setSelectedEquipmentType}
+                    onAdd={handleAddEquipment}
+                    currentEquipment={currentSelectedEquipment}
+                    equipmentCount={equipmentCount}
+                    setEquipmentCount={setEquipmentCount}
+                  />
+                  <SelectedEquipmentsList
+                    items={selectedEquipments}
+                    onRemove={handleRemoveEquipment}
+                    onUpdate={(index, patch) =>
+                      setSelectedEquipments((prev) =>
+                        prev.map((item, i) => (i === index ? { ...item, ...patch } : item))
+                      )
+                    }
+                  />
+                </>
+              )}
             </div>
           </>
         )}
@@ -250,6 +263,14 @@ function App() {
                 />
               </>
             )}
+          </div>
+        )}
+        {activeTab === "enedis" && (
+          <div className="stack results">
+            <div className="panel">
+              <h3>Enedis</h3>
+              <p className="muted">Espace réservé aux futures intégrations Enedis.</p>
+            </div>
           </div>
         )}
         {activeTab === "solar" && (
@@ -290,10 +311,6 @@ function HouseForm({ house, onChange, climateZone, climateLoading, climateError 
       <label>
         Nb personnes
         <input type="number" value={house.number_person} onChange={(e) => onChange("number_person", Number(e.target.value))} />
-      </label>
-      <label>
-        Volume piscine (m³)
-        <input type="number" value={house.pool_volume} onChange={(e) => onChange("pool_volume", Number(e.target.value))} />
       </label>
       <label>
         Zone climatique
@@ -402,37 +419,90 @@ function EquipmentSelector({
 type SelectedEquipmentsListProps = {
   items: SelectedEquipment[];
   onRemove: (index: number) => void;
+  onUpdate: (index: number, patch: Partial<SelectedEquipment>) => void;
 };
 
-function SelectedEquipmentsList({ items, onRemove }: SelectedEquipmentsListProps) {
+function SelectedEquipmentsList({ items, onRemove, onUpdate }: SelectedEquipmentsListProps) {
   if (items.length === 0) {
     return <p className="muted">Aucun équipement ajouté.</p>;
   }
   return (
-    <table className="table">
-      <thead>
-        <tr>
-          <th>Catégorie</th>
-          <th>Type</th>
-          <th>Nombre</th>
-          <th></th>
-        </tr>
-      </thead>
-      <tbody>
-        {items.map((item, idx) => (
-          <tr key={`${item.equipment_category}-${item.equipment_type}-${idx}`}>
-            <td>{item.equipment_category}</td>
-            <td>{item.equipment_type}</td>
-            <td>{item.number_equipement}</td>
+    <div className="table-wrapper">
+      <table className="table">
+        <thead>
+          <tr>
+            <th>Catégorie</th>
+            <th>Type</th>
+            <th>Nombre</th>
+            <th>Surface concernée (m²)</th>
+            <th>Personnes concernées</th>
+            <th>Volume piscine (m³)</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          {items.map((item, idx) => (
+            <tr key={`${item.equipment_category}-${item.equipment_type}-${idx}`}>
+              <td>{item.equipment_category}</td>
+              <td>{item.equipment_type}</td>
+              <td>
+                <input
+                  type="number"
+                  min={1}
+                  value={item.number_equipement}
+                  onChange={(e) => onUpdate(idx, { number_equipement: Number(e.target.value) || 1 })}
+                  style={{ width: "80px" }}
+                />
+              </td>
+            <td>
+              {item.equipment_category === "chauffage" || item.equipment_category === "climatisation" ? (
+                <input
+                  type="number"
+                  min={0}
+                  value={item.applicable_surface ?? ""}
+                  onChange={(e) => onUpdate(idx, { applicable_surface: Number(e.target.value) || 0 })}
+                  style={{ width: "120px" }}
+                />
+              ) : (
+                "—"
+              )}
+            </td>
+            <td>
+              {item.equipment_category === "chauffe_eau" ? (
+                <input
+                  type="number"
+                  min={0}
+                  value={item.applicable_persons ?? ""}
+                  onChange={(e) => onUpdate(idx, { applicable_persons: Number(e.target.value) || 0 })}
+                  style={{ width: "120px" }}
+                />
+              ) : (
+                "—"
+              )}
+            </td>
+            <td>
+              {item.equipment_category === "piscine" ? (
+                <input
+                  type="number"
+                  min={0}
+                  value={item.pool_volume ?? ""}
+                  onChange={(e) => onUpdate(idx, { pool_volume: Number(e.target.value) || 0 })}
+                  style={{ width: "120px" }}
+                />
+              ) : (
+                "—"
+              )}
+            </td>
             <td>
               <button className="link" onClick={() => onRemove(idx)}>
                 Supprimer
               </button>
             </td>
-          </tr>
-        ))}
-      </tbody>
-    </table>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
   );
 }
 

@@ -74,6 +74,8 @@ export type SelectedEquipment = {
   equipment_category: string;
   equipment_type: string;
   number_equipement: number;
+  applicable_surface?: number;
+  applicable_persons?: number;
 };
 
 export type Monthly = {
