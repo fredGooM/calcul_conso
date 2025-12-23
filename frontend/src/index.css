@@ -26,8 +26,16 @@ body {
   padding: 28px;
   border-radius: 18px;
   box-shadow: 0 12px 35px rgba(15, 23, 42, 0.08);
-  max-width: 520px;
+  max-width: 1200px;
   width: 100%;
+}
+
+.card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 10px;
 }
 
 .eyebrow {
@@ -48,11 +56,77 @@ p {
   color: #334155;
 }
 
+.badge {
+  background: #e2e8f0;
+  color: #0f172a;
+  padding: 6px 10px;
+  border-radius: 12px;
+  font-weight: 600;
+  font-size: 13px;
+}
+
 .actions {
   display: flex;
   gap: 12px;
   flex-wrap: wrap;
   margin-top: 12px;
+  align-items: center;
+}
+
+.grid.two {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  gap: 18px;
+  margin: 18px 0;
+}
+
+.panel {
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 16px;
+  background: #f8fafc;
+}
+
+.form-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 12px;
+}
+
+.form-inline {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  align-items: flex-end;
+}
+
+.stack {
+  display: grid;
+  gap: 12px;
+}
+
+label {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-weight: 600;
+  color: #0f172a;
+  font-size: 14px;
+}
+
+input,
+select {
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: 1px solid #cbd5e1;
+  font-size: 14px;
+}
+
+.checkbox {
+  flex-direction: row;
+  align-items: center;
+  gap: 8px;
+  font-weight: 600;
 }
 
 .btn {
@@ -63,6 +137,13 @@ p {
   text-decoration: none;
   font-weight: 600;
   box-shadow: 0 4px 12px rgba(37, 99, 235, 0.3);
+  border: none;
+  cursor: pointer;
+}
+
+.btn.secondary {
+  background: #0f172a;
+  box-shadow: none;
 }
 
 .link {
@@ -70,4 +151,54 @@ p {
   text-decoration: none;
   font-weight: 600;
   padding: 10px 0;
+  background: none;
+  border: none;
+  cursor: pointer;
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.table th,
+.table td {
+  border: 1px solid #e2e8f0;
+  padding: 8px;
+  text-align: center;
+}
+
+.table.compact th,
+.table.compact td {
+  padding: 6px;
+}
+
+.muted {
+  color: #64748b;
+  margin: 6px 0;
+}
+
+.error {
+  color: #dc2626;
+  font-weight: 600;
+}
+
+.results {
+  margin-top: 16px;
+}
+
+.equipment-block {
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  padding: 12px;
+  margin-bottom: 12px;
+  background: #fff;
+}
+
+.equipment-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
 }
