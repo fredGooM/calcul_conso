@@ -1,0 +1,73 @@
+:root {
+  font-family: "Segoe UI", "Inter", system-ui, -apple-system, sans-serif;
+  color: #0f172a;
+  background: linear-gradient(135deg, #f3f7ff, #e8eefc);
+  min-height: 100vh;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  padding: 0;
+}
+
+.app-shell {
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  padding: 32px;
+}
+
+.card {
+  background: #fff;
+  padding: 28px;
+  border-radius: 18px;
+  box-shadow: 0 12px 35px rgba(15, 23, 42, 0.08);
+  max-width: 520px;
+  width: 100%;
+}
+
+.eyebrow {
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  font-size: 12px;
+  color: #475569;
+  margin: 0 0 8px 0;
+}
+
+h1 {
+  margin: 0 0 12px 0;
+  font-size: 28px;
+}
+
+p {
+  margin: 0 0 16px 0;
+  color: #334155;
+}
+
+.actions {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-top: 12px;
+}
+
+.btn {
+  background: #2563eb;
+  color: #fff;
+  padding: 10px 16px;
+  border-radius: 10px;
+  text-decoration: none;
+  font-weight: 600;
+  box-shadow: 0 4px 12px rgba(37, 99, 235, 0.3);
+}
+
+.link {
+  color: #1d4ed8;
+  text-decoration: none;
+  font-weight: 600;
+  padding: 10px 0;
+}
