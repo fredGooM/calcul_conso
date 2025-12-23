@@ -13,6 +13,10 @@ export default defineConfig({
       "/house": {
         target: "http://localhost:4000",
         changeOrigin: true
+      },
+      "/utils": {
+        target: "http://localhost:4000",
+        changeOrigin: true
       }
     }
   }

@@ -1,5 +1,14 @@
 import { useEffect, useMemo, useState } from "react";
-import { api, CatalogEquipment, CatalogResponse, HouseInput, Monthly, SelectedEquipment, SimulationResponse } from "./api/client";
+import {
+  api,
+  CatalogEquipment,
+  CatalogResponse,
+  Climate,
+  HouseInput,
+  Monthly,
+  SelectedEquipment,
+  SimulationResponse
+} from "./api/client";
 import "./index.css";
 
 const defaultHouse: HouseInput = {
@@ -9,7 +18,6 @@ const defaultHouse: HouseInput = {
   pool_volume: 40,
   surface: 100,
   dpe: "C",
-  climat_region: "H2",
   zip_code: "34470",
   water_heater_during_day: false
 };
@@ -34,6 +42,9 @@ function App() {
   const [equipmentCount, setEquipmentCount] = useState<number>(1);
   const [selectedEquipments, setSelectedEquipments] = useState<SelectedEquipment[]>([]);
   const [simulationState, setSimulationState] = useState<SimulationState>({ loading: false });
+  const [climateZone, setClimateZone] = useState<Climate | null>(null);
+  const [climateLoading, setClimateLoading] = useState(false);
+  const [climateError, setClimateError] = useState<string | null>(null);
 
   useEffect(() => {
     async function loadCatalog() {
@@ -62,6 +73,27 @@ function App() {
   const handleHouseChange = (key: keyof HouseInput, value: any) => {
     setHouse((prev) => ({ ...prev, [key]: value }));
   };
+
+  useEffect(() => {
+    const zip = house.zip_code;
+    if (!zip || zip.length < 2) {
+      setClimateZone(null);
+      setClimateError(null);
+      return;
+    }
+    setClimateLoading(true);
+    api
+      .getClimateZone(zip)
+      .then((resp) => {
+        setClimateZone(resp.climate_zone);
+        setClimateError(null);
+      })
+      .catch((err) => {
+        setClimateZone(null);
+        setClimateError((err as Error).message);
+      })
+      .finally(() => setClimateLoading(false));
+  }, [house.zip_code]);
 
   const handleAddEquipment = () => {
     if (!selectedCategory || !selectedEquipmentType) return;
@@ -107,7 +139,7 @@ function App() {
         <div className="grid two">
           <div className="panel">
             <h2>Maison</h2>
-            <HouseForm house={house} onChange={handleHouseChange} />
+            <HouseForm house={house} onChange={handleHouseChange} climateZone={climateZone} climateLoading={climateLoading} climateError={climateError} />
           </div>
 
           <div className="panel">
@@ -158,9 +190,12 @@ function App() {
 type HouseFormProps = {
   house: HouseInput;
   onChange: (key: keyof HouseInput, value: any) => void;
+  climateZone: Climate | null;
+  climateLoading: boolean;
+  climateError: string | null;
 };
 
-function HouseForm({ house, onChange }: HouseFormProps) {
+function HouseForm({ house, onChange, climateZone, climateLoading, climateError }: HouseFormProps) {
   return (
     <div className="form-grid">
       <label>
@@ -180,24 +215,14 @@ function HouseForm({ house, onChange }: HouseFormProps) {
         <input type="number" value={house.pool_volume} onChange={(e) => onChange("pool_volume", Number(e.target.value))} />
       </label>
       <label>
-        DPE
-        <select value={house.dpe} onChange={(e) => onChange("dpe", e.target.value as HouseInput["dpe"])}>
-          {["A", "B", "C", "D", "E", "F", "G"].map((d) => (
-            <option key={d} value={d}>
-              {d}
-            </option>
-          ))}
-        </select>
+        Zone climatique
+        <input type="text" value={climateZone ? climateZone : "—"} readOnly />
+        {climateLoading && <span className="muted">Calcul...</span>}
+        {climateError && <span className="error">{climateError}</span>}
       </label>
       <label>
-        Climat
-        <select value={house.climat_region} onChange={(e) => onChange("climat_region", e.target.value as HouseInput["climat_region"])}>
-          {["H1", "H2", "H3"].map((c) => (
-            <option key={c} value={c}>
-              {c}
-            </option>
-          ))}
-        </select>
+        Code postal
+        <input type="text" value={house.zip_code} onChange={(e) => onChange("zip_code", e.target.value)} />
       </label>
       <label>
         Présence
@@ -218,10 +243,6 @@ function HouseForm({ house, onChange }: HouseFormProps) {
             </option>
           ))}
         </select>
-      </label>
-      <label>
-        Code postal
-        <input type="text" value={house.zip_code} onChange={(e) => onChange("zip_code", e.target.value)} />
       </label>
       <label className="checkbox">
         <input

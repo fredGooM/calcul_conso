@@ -33,6 +33,7 @@ async function safeParseError(resp: Response): Promise<string | null> {
 
 export const api = {
   getCatalog: () => request<CatalogResponse>("/api/catalog"),
+  getClimateZone: (zip: string) => request<ClimateZoneResponse>(`/utils/climate-zone?zip=${encodeURIComponent(zip)}`),
   runSimulation: (payload: SimulationRequest) => request<SimulationResponse>("/api/simulations", { method: "POST", body: payload })
 };
 
@@ -48,7 +49,6 @@ export type HouseInput = {
   pool_volume: number;
   surface: number;
   dpe: Dpe;
-  climat_region: Climate;
   zip_code: string;
   water_heater_during_day: boolean;
 };
@@ -93,6 +93,7 @@ export type SimulationResponse = {
   houseMonthly: Monthly;
   annual_consumption_simulated: number;
   coefficient: number;
+  climate_zone: Climate;
   equipments: Array<{
     equipment: {
       id: string;
@@ -114,9 +115,14 @@ export type SimulationRequest = {
     pool_volume: number;
     surface: number;
     dpe: Dpe;
-    climat_region: Climate;
     zip_code: string;
     water_heater_during_day: boolean;
   };
   selectedEquipments: SelectedEquipment[];
+};
+
+export type ClimateZoneResponse = {
+  zip: string;
+  department: string;
+  climate_zone: Climate;
 };
