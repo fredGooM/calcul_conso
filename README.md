@@ -87,3 +87,51 @@ curl -s -X POST http://localhost:4000/api/simulations \
             { "equipment_category": "multimedia", "equipment_type": "box_Internet", "number_equipement": 2 }
     ]
   }' | jq .
+
+  ## MaJ Prisma
+# 1) Vérifier que Prisma comprend le schéma
+npx prisma validate
+
+# 2) (optionnel mais recommandé) Formater le schema.prisma
+npx prisma format
+
+Générer le client Prisma (obligatoire)
+npx prisma generate
+
+# 3) Créer et appliquer une migration + générer le client
+npx prisma migrate dev --name init_switchgrid
+npx prisma migrate dev --name add_switchgrid_ask_and_enedis_status
+
+# 4) (optionnel) Ouvrir Prisma Studio pour vérifier les tables
+npx prisma studio
+
+
+## Bash pour tester route Switchgrid
+
+curl -G "http://localhost:4001/api/enedis/search-contract" \
+  --data-urlencode "name=Dupont" \
+  --data-urlencode "address=10 rue de la paix 75002 Paris"
+
+  curl -G "http://localhost:4001/api/enedis/search-contract" \
+  --data-urlencode "name=Dupont" \
+    --data-urlencode "address=10 rue de la paix 75002 Paris" \
+  --data-urlencode "prm=00000000000022"
+
+
+## Installation de Ngtok pour rendre visible le webhool local de l'exterieur
+  brew install ngrok/ngrok/ngrok
+  ngrok config add-authtoken 37LCC01W7KMwFTpddHOopC4Ligm_81xCcJLEtWWVh6sZJV12t
+  ngrok http 4001
+  https://unprovided-patricia-nonofficially.ngrok-free.dev
+
+## Test du webhook Ask en local
+curl -i -X POST "http://localhost:4001/api/enedis/webhook" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "event": {
+      "_tag": "ask.accepted",
+      "createdAt": "2025-12-25T10:00:00.000Z",
+      "organizationId": "org_test",
+      "askId": "ASK_TEST_001"
+    }
+  }'

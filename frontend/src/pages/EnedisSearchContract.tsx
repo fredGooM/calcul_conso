@@ -1,17 +1,34 @@
-import { FormEvent, useState } from "react";
-import { EnedisSearchResult, searchContract } from "../services/enedisApi";
+import { FormEvent, useMemo, useState } from "react";
+import { EnedisSearchResult, createAsk, searchContract } from "../services/enedisApi";
 
 type SearchMode = "address" | "prm";
 
 export default function EnedisSearchContract() {
   const [mode, setMode] = useState<SearchMode>("address");
-  const [name, setName] = useState("");
-  const [address, setAddress] = useState("");
+  const [name, setName] = useState("Dupont");
+  const [address, setAddress] = useState("10 rue de la paix 75002 Paris");
   const [prm, setPrm] = useState("");
   const [results, setResults] = useState<EnedisSearchResult[]>([]);
   const [rawOpen, setRawOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [selectedContract, setSelectedContract] = useState<EnedisSearchResult | null>(null);
+  const [showModal, setShowModal] = useState(false);
+  const [email, setEmail] = useState(import.meta.env.DEV ? "test@example.com" : "");
+  const [askLoading, setAskLoading] = useState(false);
+  const [askError, setAskError] = useState<string | null>(null);
+  const [askSuccess, setAskSuccess] = useState<string | null>(null);
+
+  const selectedContractId = useMemo(() => {
+    if (!selectedContract) return null;
+    return (
+      selectedContract.contractUuid ||
+      selectedContract.uuid ||
+      selectedContract.id ||
+      selectedContract.prm ||
+      null
+    );
+  }, [selectedContract]);
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -26,11 +43,71 @@ export default function EnedisSearchContract() {
 
       const data = await searchContract(payload);
       setResults(data);
+      setSelectedContract(null);
     } catch (err) {
       setResults([]);
-      setError((err as Error).message);
+      console.warn("Search contract failed", err);
+      setError("La recherche n'a pas abouti, veuillez remplir correctement le champs adresse et nom");
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleOpenModal = () => {
+    setAskError(null);
+    setAskSuccess(null);
+    setShowModal(true);
+  };
+
+  const handleCloseModal = () => {
+    setShowModal(false);
+    setAskError(null);
+    setAskLoading(false);
+  };
+
+  const handleSendAsk = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (!selectedContractId) return;
+    setAskError(null);
+    setAskSuccess(null);
+
+    if (!email || !email.trim()) {
+      setAskError("Email invalide");
+      return;
+    }
+
+    setAskLoading(true);
+    try {
+      const contractName = selectedContract?.nomClientFinalOuDenominationSociale ?? name;
+      const addressLine =
+        selectedContract?.adresseInstallationNormalisee?.ligne4 ??
+        selectedContract?.adresseInstallationNormalisee?.ligne6 ??
+        address;
+      const postalCodeMatch = selectedContract?.adresseInstallationNormalisee?.ligne6?.match(/\\b(\\d{5})\\b/);
+      const postalCode = postalCodeMatch ? postalCodeMatch[1] : undefined;
+      const prmSelected = selectedContract?.prm;
+
+      const payload = {
+        electricityContracts: [selectedContractId],
+        signer: { firstName: contractName || "Prospect", lastName: "Unknown" },
+        purposes: ["SOLAR_INSTALLATION_SIZING"],
+        consentDuration: "3 years",
+        email,
+        firstName: contractName || undefined,
+        lastName: undefined,
+        addressLine,
+        postalCode,
+        city: undefined,
+        prm: prmSelected ?? undefined
+      };
+
+      const resp = await createAsk(payload);
+      setAskSuccess(resp.message ?? "Demande envoyée");
+      setShowModal(false);
+    } catch (err) {
+      setAskError((err as Error).message);
+    } finally {
+      setAskLoading(false);
     }
   };
 
@@ -93,7 +170,8 @@ export default function EnedisSearchContract() {
         {!loading && results.length === 0 && !error && <p className="muted">Aucun résultat pour l’instant.</p>}
 
         {!loading && results.length > 0 && (
-          <ul className="stack">
+          <>
+            <ul className="stack">
             {results.map((item, index) => {
               const key = `${item.prm ?? item.nomClientFinalOuDenominationSociale ?? "result"}-${index}`;
               const addressLine = [item.adresseInstallationNormalisee?.ligne4, item.adresseInstallationNormalisee?.ligne6]
@@ -101,8 +179,16 @@ export default function EnedisSearchContract() {
                 .join(" • ");
 
               return (
-                <li key={key} className="card">
-                  <div className="form-inline" style={{ justifyContent: "space-between", alignItems: "flex-start" }}>
+                <li key={key} className="card" style={{ borderColor: selectedContract === item ? "#f97316" : undefined }}>
+                  <div className="form-inline" style={{ justifyContent: "space-between", alignItems: "flex-start", gap: "1rem" }}>
+                    <label className="checkbox" style={{ alignSelf: "flex-start", paddingTop: "6px" }}>
+                      <input
+                        type="radio"
+                        name="contract"
+                        checked={selectedContract === item}
+                        onChange={() => setSelectedContract(item)}
+                      />
+                    </label>
                     <div>
                       <p className="muted">Client</p>
                       <strong>{item.nomClientFinalOuDenominationSociale ?? "—"}</strong>
@@ -127,6 +213,18 @@ export default function EnedisSearchContract() {
               );
             })}
           </ul>
+            <div className="form-inline" style={{ marginTop: "1rem", gap: "0.75rem" }}>
+              <button
+                type="button"
+                className="btn btn-orange"
+                disabled={!selectedContract || askLoading}
+                onClick={handleOpenModal}
+              >
+                Envoyer demande de récupération
+              </button>
+              {askSuccess && <span className="muted">{askSuccess}</span>}
+            </div>
+          </>
         )}
 
         <details open={rawOpen} onToggle={(e) => setRawOpen((e.target as HTMLDetailsElement).open)} style={{ marginTop: "1rem" }}>
@@ -134,6 +232,36 @@ export default function EnedisSearchContract() {
           <pre style={{ maxHeight: "240px", overflow: "auto" }}>{JSON.stringify(results, null, 2)}</pre>
         </details>
       </div>
+
+      {showModal && (
+        <div className="modal-overlay">
+          <div className="modal-card">
+            <h4>Demande de consentement pour récupération de données auprès d'Enedis</h4>
+            <p className="muted">Un mail va etre envoyé au prospect avec un lien sécurisé pour le consentement.</p>
+            <form className="stack" onSubmit={handleSendAsk}>
+              <label>
+                Email du prospect
+                <input
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  required
+                  placeholder="prospect@example.com"
+                />
+              </label>
+              {askError && <span className="error">Erreur : {askError}</span>}
+              <div className="form-inline" style={{ justifyContent: "flex-end", gap: "0.5rem" }}>
+                <button type="button" className="btn secondary" onClick={handleCloseModal} disabled={askLoading}>
+                  Annuler
+                </button>
+                <button type="submit" className="btn btn-orange" disabled={askLoading}>
+                  {askLoading ? "Envoi..." : "Envoyer"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

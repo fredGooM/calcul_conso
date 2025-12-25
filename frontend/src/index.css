@@ -287,3 +287,24 @@ select {
   border-radius: 50%;
   display: inline-block;
 }
+
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.35);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 20;
+  padding: 16px;
+}
+
+.modal-card {
+  background: #fff;
+  border-radius: 12px;
+  padding: 20px;
+  max-width: 520px;
+  width: 100%;
+  box-shadow: 0 12px 30px rgba(15, 23, 42, 0.18);
+  border: 1px solid #e2e8f0;
+}

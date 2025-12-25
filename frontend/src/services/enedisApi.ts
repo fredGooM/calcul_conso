@@ -16,7 +16,27 @@ export type EnedisSearchResult = {
   prm?: string;
   categorieClientFinalCode?: string;
   adresseInstallationNormalisee?: EnedisAddress;
+  contractUuid?: string;
+  uuid?: string;
+  id?: string;
   [key: string]: unknown;
+};
+
+export type CreateAskPayload = {
+  electricityContracts: string[];
+  signer: {
+    firstName: string;
+    lastName: string;
+  };
+  purposes: string[];
+  consentDuration: string;
+  email: string;
+  firstName?: string;
+  lastName?: string;
+  addressLine?: string;
+  postalCode?: string;
+  city?: string;
+  prm?: string;
 };
 
 export async function searchContract(params: EnedisSearchParams): Promise<EnedisSearchResult[]> {
@@ -55,4 +75,29 @@ export async function searchContract(params: EnedisSearchParams): Promise<Enedis
   }
 
   throw new Error("Réponse inattendue du serveur");
+}
+
+export async function createAsk(payload: CreateAskPayload): Promise<{ message?: string }> {
+  const url = buildApiUrl("/api/enedis/ask");
+
+  try {
+    const response = await fetch(url, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify(payload)
+    });
+
+    if (!response.ok) {
+      const text = await response.text();
+      throw new Error(text || `Requête échouée (${response.status})`);
+    }
+
+    return response.json();
+  } catch (error) {
+    // Si le backend n'est pas prêt, on mock la réponse pour permettre les tests UI.
+    console.warn("createAsk fallback (mock)", error);
+    return Promise.resolve({ message: "(Mock) Demande envoyée" });
+  }
 }
