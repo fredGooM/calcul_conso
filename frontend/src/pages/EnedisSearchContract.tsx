@@ -12,12 +12,10 @@ export default function EnedisSearchContract() {
   const [rawOpen, setRawOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [copyMessage, setCopyMessage] = useState<string | null>(null);
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setError(null);
-    setCopyMessage(null);
     setLoading(true);
 
     try {
@@ -36,22 +34,10 @@ export default function EnedisSearchContract() {
     }
   };
 
-  const handleCopyPrm = async (value?: string) => {
-    if (!value) return;
-    try {
-      await navigator.clipboard.writeText(value);
-      setCopyMessage(`PRM copié: ${value}`);
-      setTimeout(() => setCopyMessage(null), 1500);
-    } catch {
-      setCopyMessage("Impossible de copier le PRM");
-    }
-  };
-
   return (
     <div className="stack results">
       <div className="panel">
         <h3>Recherche contrat Enedis</h3>
-        <p className="muted">Testez l’endpoint GET /api/enedis/search-contract avec une adresse ou un PRM.</p>
 
         <form className="stack" onSubmit={handleSubmit}>
           <div className="form-inline">
@@ -67,14 +53,20 @@ export default function EnedisSearchContract() {
 
           <div className="form-grid">
             <label>
-              Nom / Dénomination (obligatoire)
+              Nom ou Raison sociale (obligatoire)
               <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Jean Dupont" required />
+              <span className="muted" style={{ fontSize: "0.8rem" }}>
+                Le nom doit correspondre à celui sur la facture
+              </span>
             </label>
 
             {mode === "address" && (
               <label>
                 Adresse
                 <input value={address} onChange={(e) => setAddress(e.target.value)} placeholder="10 rue de la Paix 75002 Paris" required />
+                <span className="muted" style={{ fontSize: "0.8rem" }}>
+                  Exemple de format d'adresse : 5 rue des naiades 34470 Pérols
+                </span>
               </label>
             )}
 
@@ -91,7 +83,6 @@ export default function EnedisSearchContract() {
               {loading ? "Recherche..." : "Rechercher"}
             </button>
             {error && <span className="error">Erreur : {error}</span>}
-            {copyMessage && <span className="muted">{copyMessage}</span>}
           </div>
         </form>
       </div>
@@ -111,7 +102,7 @@ export default function EnedisSearchContract() {
 
               return (
                 <li key={key} className="card">
-                  <div className="form-inline" style={{ justifyContent: "space-between", alignItems: "center" }}>
+                  <div className="form-inline" style={{ justifyContent: "space-between", alignItems: "flex-start" }}>
                     <div>
                       <p className="muted">Client</p>
                       <strong>{item.nomClientFinalOuDenominationSociale ?? "—"}</strong>
@@ -120,16 +111,13 @@ export default function EnedisSearchContract() {
                       <p className="muted">PRM</p>
                       <div className="form-inline" style={{ gap: "0.5rem" }}>
                         <span>{item.prm ?? "—"}</span>
-                        {item.prm && (
-                          <button type="button" className="btn secondary" onClick={() => handleCopyPrm(item.prm)}>
-                            Copier PRM
-                          </button>
-                        )}
                       </div>
                     </div>
                     <div>
                       <p className="muted">Catégorie</p>
-                      <span>{item.categorieClientFinalCode ?? "—"}</span>
+                      <span>
+                        {item.categorieClientFinalCode === "RES" ? "Résidentiel" : "Professionel"}
+                      </span>
                     </div>
                   </div>
                   <div className="muted" style={{ marginTop: "0.5rem" }}>
