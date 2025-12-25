@@ -62,11 +62,14 @@ voir l'historique: git log --oneline
 ## Bash pour tester
 curl -s http://localhost:4000/api/catalog | jq .
 
+curl -s http://localhost:4000/api/tableday | jq .
+
+
 curl -s -X POST http://localhost:4000/api/simulations \
   -H "Content-Type: application/json" \
   -d '{
     "house": {
-      "annual_consumption": 10000,
+      "annual_consumption_kWh": 10000,
       "presence": "TT2j",
       "number_person": 4,
       "pool_volume": 40,

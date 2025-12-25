@@ -1,12 +1,12 @@
-// Normalize base: accept values with or without trailing "/api"
-const rawBase = import.meta.env.VITE_API_URL?.replace(/\/$/, "") || "";
-const API_BASE = rawBase.endsWith("/api") ? rawBase.slice(0, -4) : rawBase;
+// Normalize base: accept values with or without trailing "/api". Falls back to relative calls when empty.
+const rawBaseEnv = (import.meta.env.VITE_API_BASE_URL ?? import.meta.env.VITE_API_URL ?? "").replace(/\/$/, "");
+const API_BASE = rawBaseEnv ? (rawBaseEnv.endsWith("/api") ? rawBaseEnv.slice(0, -4) : rawBaseEnv) : "";
 
 type HttpMethod = "GET" | "POST";
 
 async function request<T>(path: string, options: { method?: HttpMethod; body?: unknown } = {}): Promise<T> {
   const { method = "GET", body } = options;
-  const url = `${API_BASE}${path}`;
+  const url = buildApiUrl(path);
 
   const resp = await fetch(url, {
     method,
@@ -40,6 +40,10 @@ export const api = {
   getEquipementDescription: () => request<EquipementDescriptionEntry[]>("/api/equipement_description"),
   getTableday: () => request<TabledayEntry[]>("/api/tableday")
 };
+
+export function buildApiUrl(path: string): string {
+  return `${API_BASE}${path}`;
+}
 
 // Types
 export type Presence = "Actif" | "TT1j" | "TT2j" | "TT3j" | "TT4j" | "TT5j_Retraite";
@@ -76,6 +80,7 @@ export type SelectedEquipment = {
   number_equipement: number;
   applicable_surface?: number;
   applicable_persons?: number;
+  pool_volume?: number;
 };
 
 export type Monthly = {

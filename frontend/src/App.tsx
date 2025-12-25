@@ -13,6 +13,7 @@ import {
 } from "./api/client";
 import { Bar, BarChart, CartesianGrid, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis, Cell } from "recharts";
 import "./index.css";
+import EnedisSearchContract from "./pages/EnedisSearchContract";
 
 const defaultHouse: HouseInput = {
   annual_consumption: 10000,
@@ -265,14 +266,7 @@ function App() {
             )}
           </div>
         )}
-        {activeTab === "enedis" && (
-          <div className="stack results">
-            <div className="panel">
-              <h3>Enedis</h3>
-              <p className="muted">Espace réservé aux futures intégrations Enedis.</p>
-            </div>
-          </div>
-        )}
+        {activeTab === "enedis" && <EnedisSearchContract />}
         {activeTab === "solar" && (
           <div className="stack results">
             {!simulationState.data && <p className="muted">Lancez une simulation pour visualiser les consommations.</p>}
