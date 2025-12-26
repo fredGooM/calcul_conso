@@ -1,5 +1,5 @@
-import { FormEvent, useMemo, useState } from "react";
-import { EnedisSearchResult, createAsk, searchContract } from "../services/enedisApi";
+import { FormEvent, useMemo, useState, useEffect } from "react";
+import { EnedisSearchResult, createAsk, getAskStatus, searchContract } from "../services/enedisApi";
 
 type SearchMode = "address" | "prm";
 
@@ -14,10 +14,12 @@ export default function EnedisSearchContract() {
   const [error, setError] = useState<string | null>(null);
   const [selectedContract, setSelectedContract] = useState<EnedisSearchResult | null>(null);
   const [showModal, setShowModal] = useState(false);
-  const [email, setEmail] = useState(import.meta.env.DEV ? "test@example.com" : "");
+  const [email, setEmail] = useState(import.meta.env.DEV ? "fred@goom.digital" : "fred@goom.digital");
   const [askLoading, setAskLoading] = useState(false);
   const [askError, setAskError] = useState<string | null>(null);
   const [askSuccess, setAskSuccess] = useState<string | null>(null);
+  const [askId, setAskId] = useState<string | null>(null);
+  const [askStatus, setAskStatus] = useState<string | null>(null);
 
   const selectedContractId = useMemo(() => {
     if (!selectedContract) return null;
@@ -102,6 +104,9 @@ export default function EnedisSearchContract() {
       };
 
       const resp = await createAsk(payload);
+      const newAskId = (resp as any)?.askId ?? (resp as any)?.id ?? (resp as any)?.switchgridAskId ?? null;
+      setAskId(newAskId);
+      setAskStatus((resp as any)?.status ?? null);
       setAskSuccess(resp.message ?? "Demande envoyée");
       setShowModal(false);
     } catch (err) {
@@ -110,6 +115,31 @@ export default function EnedisSearchContract() {
       setAskLoading(false);
     }
   };
+
+  // Poll ask status when we have an askId
+  useEffect(() => {
+    if (!askId) return;
+    let cancelled = false;
+
+    async function poll() {
+      try {
+        if (!askId) return;
+        const statusResp = await getAskStatus(askId);
+        if (cancelled) return;
+        setAskStatus(statusResp.status ?? null);
+      } catch (err) {
+        console.warn("Polling ask status failed", err);
+      }
+    }
+
+    // Immediate poll then interval
+    poll();
+    const interval = setInterval(poll, 5000);
+    return () => {
+      cancelled = true;
+      clearInterval(interval);
+    };
+  }, [askId]);
 
   return (
     <div className="stack results">
@@ -223,6 +253,11 @@ export default function EnedisSearchContract() {
                 Envoyer demande de récupération
               </button>
               {askSuccess && <span className="muted">{askSuccess}</span>}
+              {askStatus === "ACCEPTED" && (
+                <span className="muted" style={{ color: "#16a34a", fontWeight: 600 }}>
+                  Le client a accepté la demande de récupération des données
+                </span>
+              )}
             </div>
           </>
         )}

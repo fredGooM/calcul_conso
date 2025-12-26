@@ -39,6 +39,17 @@ export type CreateAskPayload = {
   prm?: string;
 };
 
+export async function getAskStatus(askId: string): Promise<{ status?: string }> {
+  const url = buildApiUrl(`/api/enedis/ask/${encodeURIComponent(askId)}`);
+
+  const response = await fetch(url);
+  if (!response.ok) {
+    const text = await response.text();
+    throw new Error(text || `Requête échouée (${response.status})`);
+  }
+  return response.json() as Promise<{ status?: string }>;
+}
+
 export async function searchContract(params: EnedisSearchParams): Promise<EnedisSearchResult[]> {
   const name = params.name.trim();
   const address = params.address?.trim();
