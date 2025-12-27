@@ -1,5 +1,5 @@
 import { FormEvent, useMemo, useState, useEffect } from "react";
-import { EnedisSearchResult, createAsk, getAskStatus, searchContract } from "../services/enedisApi";
+import { EnedisSearchResult, SwitchgridRequestDto, createAsk, getAskStatus, getRequests, searchContract } from "../services/enedisApi";
 
 type SearchMode = "address" | "prm";
 
@@ -20,6 +20,8 @@ export default function EnedisSearchContract() {
   const [askSuccess, setAskSuccess] = useState<string | null>(null);
   const [askId, setAskId] = useState<string | null>(null);
   const [askStatus, setAskStatus] = useState<string | null>(null);
+  const [requests, setRequests] = useState<SwitchgridRequestDto[]>([]);
+  const [requestsError, setRequestsError] = useState<string | null>(null);
 
   const selectedContractId = useMemo(() => {
     if (!selectedContract) return null;
@@ -118,7 +120,7 @@ export default function EnedisSearchContract() {
 
   // Poll ask status when we have an askId
   useEffect(() => {
-    if (!askId) return;
+    if (!askId || askStatus === "ACCEPTED") return;
     let cancelled = false;
 
     async function poll() {
@@ -126,20 +128,47 @@ export default function EnedisSearchContract() {
         if (!askId) return;
         const statusResp = await getAskStatus(askId);
         if (cancelled) return;
-        setAskStatus(statusResp.status ?? null);
+        const nextStatus = statusResp.status ?? null;
+        setAskStatus(nextStatus);
+        if (nextStatus === "ACCEPTED") {
+          cancelled = true;
+        }
       } catch (err) {
         console.warn("Polling ask status failed", err);
       }
     }
 
-    // Immediate poll then interval
     poll();
     const interval = setInterval(poll, 5000);
     return () => {
       cancelled = true;
       clearInterval(interval);
     };
-  }, [askId]);
+  }, [askId, askStatus]);
+
+  // Poll Switchgrid requests (light) to display received dataJson
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadRequests() {
+      try {
+        const data = await getRequests();
+        if (cancelled) return;
+        setRequests(data);
+        setRequestsError(null);
+      } catch (err) {
+        if (cancelled) return;
+        setRequestsError((err as Error).message);
+      }
+    }
+
+    loadRequests();
+    const interval = setInterval(loadRequests, 5000);
+    return () => {
+      cancelled = true;
+      clearInterval(interval);
+    };
+  }, []);
 
   return (
     <div className="stack results">
@@ -257,6 +286,41 @@ export default function EnedisSearchContract() {
                 <span className="muted" style={{ color: "#16a34a", fontWeight: 600 }}>
                   Le client a accepté la demande de récupération des données
                 </span>
+              )}
+            </div>
+
+            <div className="panel" style={{ marginTop: "1rem" }}>
+              <h4>Données reçues (Switchgrid requests)</h4>
+              {requestsError && <p className="error">Erreur : {requestsError}</p>}
+              {!requestsError && requests.length === 0 && <p className="muted">Aucune donnée reçue pour le moment.</p>}
+              {!requestsError && requests.length > 0 && (
+                <ul className="stack">
+                  {requests.map((r) => (
+                    <li key={r.id} className="card">
+                      <div className="form-inline" style={{ justifyContent: "space-between", alignItems: "flex-start" }}>
+                        <div>
+                          <p className="muted">Type</p>
+                          <strong>{r.requestType}</strong>
+                        </div>
+                        <div>
+                          <p className="muted">Statut</p>
+                          <span>{r.status}</span>
+                        </div>
+                        <div>
+                          <p className="muted">Order</p>
+                          <span>{r.orderId}</span>
+                        </div>
+                      </div>
+                      {r.dataJson ? (
+                        <pre style={{ marginTop: "0.5rem", maxHeight: "240px", overflow: "auto" }}>
+                          {JSON.stringify(r.dataJson as any, null, 2) ?? ""}
+                        </pre>
+                      ) : null}
+                      {r.dataUrl && !r.dataJson && <p className="muted">dataUrl disponible : {r.dataUrl}</p>}
+                      {r.errorMessage && <p className="error">Erreur : {r.errorMessage}</p>}
+                    </li>
+                  ))}
+                </ul>
               )}
             </div>
           </>

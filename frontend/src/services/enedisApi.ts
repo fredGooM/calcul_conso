@@ -39,6 +39,20 @@ export type CreateAskPayload = {
   prm?: string;
 };
 
+export type SwitchgridRequestDto = {
+  id: string;
+  orderId: string;
+  switchgridRequestId?: string | null;
+  requestType: string;
+  status: string;
+  orderedAt?: string | null;
+  completedAt?: string | null;
+  errorMessage?: string | null;
+  dataUrl?: string | null;
+  dataJson?: unknown;
+  createdAt: string;
+};
+
 export async function getAskStatus(askId: string): Promise<{ status?: string }> {
   const url = buildApiUrl(`/api/enedis/ask/${encodeURIComponent(askId)}`);
 
@@ -111,4 +125,14 @@ export async function createAsk(payload: CreateAskPayload): Promise<{ message?: 
     console.warn("createAsk fallback (mock)", error);
     return Promise.resolve({ message: "(Mock) Demande envoyée" });
   }
+}
+
+export async function getRequests(): Promise<SwitchgridRequestDto[]> {
+  const url = buildApiUrl("/api/enedis/requests");
+  const response = await fetch(url);
+  if (!response.ok) {
+    const text = await response.text();
+    throw new Error(text || `Requête échouée (${response.status})`);
+  }
+  return response.json() as Promise<SwitchgridRequestDto[]>;
 }
