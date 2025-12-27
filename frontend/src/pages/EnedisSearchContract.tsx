@@ -1,5 +1,14 @@
 import { FormEvent, useMemo, useState, useEffect } from "react";
-import { EnedisSearchResult, SwitchgridRequestDto, createAsk, getAskStatus, getRequests, searchContract } from "../services/enedisApi";
+import {
+  EnedisSearchResult,
+  SwitchgridRequestDto,
+  EnedisContractDetailsDto,
+  createAsk,
+  getAskStatus,
+  getRequests,
+  getContractDetails,
+  searchContract
+} from "../services/enedisApi";
 
 type SearchMode = "address" | "prm";
 
@@ -19,9 +28,17 @@ export default function EnedisSearchContract() {
   const [askError, setAskError] = useState<string | null>(null);
   const [askSuccess, setAskSuccess] = useState<string | null>(null);
   const [askId, setAskId] = useState<string | null>(null);
+  const [prospectId, setProspectId] = useState<string | null>(null);
   const [askStatus, setAskStatus] = useState<string | null>(null);
   const [requests, setRequests] = useState<SwitchgridRequestDto[]>([]);
   const [requestsError, setRequestsError] = useState<string | null>(null);
+  const [contractDetails, setContractDetails] = useState<EnedisContractDetailsDto | null>(null);
+  const [contractError, setContractError] = useState<string | null>(null);
+
+  const hasC68Success = useMemo(
+    () => requests.some((r) => r.requestType === "C68" && r.status === "SUCCESS"),
+    [requests]
+  );
 
   const selectedContractId = useMemo(() => {
     if (!selectedContract) return null;
@@ -107,7 +124,9 @@ export default function EnedisSearchContract() {
 
       const resp = await createAsk(payload);
       const newAskId = (resp as any)?.askId ?? (resp as any)?.id ?? (resp as any)?.switchgridAskId ?? null;
+      const newProspectId = (resp as any)?.prospectId ?? null;
       setAskId(newAskId);
+      setProspectId(newProspectId);
       setAskStatus((resp as any)?.status ?? null);
       setAskSuccess(resp.message ?? "Demande envoyée");
       setShowModal(false);
@@ -139,7 +158,7 @@ export default function EnedisSearchContract() {
     }
 
     poll();
-    const interval = setInterval(poll, 5000);
+    const interval = setInterval(poll, 30_000);
     return () => {
       cancelled = true;
       clearInterval(interval);
@@ -148,11 +167,12 @@ export default function EnedisSearchContract() {
 
   // Poll Switchgrid requests (light) to display received dataJson
   useEffect(() => {
+    if (!prospectId) return;
     let cancelled = false;
 
-    async function loadRequests() {
+    async function loadRequests(currentProspectId: string) {
       try {
-        const data = await getRequests();
+        const data = await getRequests(currentProspectId);
         if (cancelled) return;
         setRequests(data);
         setRequestsError(null);
@@ -162,13 +182,46 @@ export default function EnedisSearchContract() {
       }
     }
 
-    loadRequests();
-    const interval = setInterval(loadRequests, 5000);
+    const currentId = prospectId;
+    loadRequests(currentId);
+    const interval = setInterval(() => loadRequests(currentId), 5000);
     return () => {
       cancelled = true;
       clearInterval(interval);
     };
-  }, []);
+  }, [prospectId]);
+
+  // Poll contract details for the current prospect
+  useEffect(() => {
+    if (!prospectId) return;
+    if (!hasC68Success) {
+      setContractDetails(null);
+      setContractError(null);
+      return;
+    }
+
+    let cancelled = false;
+
+    async function loadContract(currentProspectId: string) {
+      try {
+        const data = await getContractDetails(currentProspectId);
+        if (cancelled) return;
+        setContractDetails(data);
+        setContractError(null);
+      } catch (err) {
+        if (cancelled) return;
+        setContractError((err as Error).message);
+      }
+    }
+
+    const currentId = prospectId;
+    loadContract(currentId);
+    const interval = setInterval(() => loadContract(currentId), 10_000);
+    return () => {
+      cancelled = true;
+      clearInterval(interval);
+    };
+  }, [prospectId, requests]);
 
   return (
     <div className="stack results">
@@ -214,14 +267,56 @@ export default function EnedisSearchContract() {
             )}
           </div>
 
-          <div className="form-inline">
-            <button type="submit" className="btn btn-orange" disabled={loading}>
-              {loading ? "Recherche..." : "Rechercher"}
-            </button>
-            {error && <span className="error">Erreur : {error}</span>}
-          </div>
-        </form>
-      </div>
+            <div className="form-inline">
+              <button type="submit" className="btn btn-orange" disabled={loading}>
+                {loading ? "Recherche..." : "Rechercher"}
+              </button>
+              {error && <span className="error">Erreur : {error}</span>}
+            </div>
+
+            {prospectId && (
+              <div className="panel" style={{ marginTop: "0.5rem" }}>
+                <h4>Détails contrat</h4>
+                {hasC68Success && contractError && <p className="error">Erreur : {contractError}</p>}
+                {!contractError && !contractDetails && <p className="muted">En attente des détails (C68)...</p>}
+                {contractDetails && (
+                  <div className="stack">
+                    <div className="form-inline" style={{ gap: "1rem" }}>
+                      <div>
+                        <p className="muted">PRM</p>
+                        <strong>{contractDetails.prm ?? "—"}</strong>
+                      </div>
+                      <div>
+                        <p className="muted">Type client</p>
+                        <strong>{contractDetails.customerType ?? "—"}</strong>
+                      </div>
+                      <div>
+                        <p className="muted">Puissance souscrite (kVA)</p>
+                        <strong>{contractDetails.subscribedPowerKva ?? "—"}</strong>
+                      </div>
+                      <div>
+                        <p className="muted">Tarif</p>
+                      <strong>{contractDetails.tariffOption ?? "—"}</strong>
+                    </div>
+                    <div>
+                      <p className="muted">Type de compteur</p>
+                      <strong>{contractDetails.meterType ?? "—"}</strong>
+                    </div>
+                  </div>
+                  {contractDetails.hpHcScheduleJson ? (
+                    <div>
+                      <p className="muted">Horaires HP/HC</p>
+                      <pre style={{ maxHeight: "160px", overflow: "auto" }}>
+                        {JSON.stringify(contractDetails.hpHcScheduleJson as Record<string, unknown>, null, 2)}
+                      </pre>
+                    </div>
+                  ) : null}
+                  </div>
+                )}
+              </div>
+            )}
+          </form>
+        </div>
 
       <div className="panel">
         <h4>Résultats</h4>
@@ -297,27 +392,15 @@ export default function EnedisSearchContract() {
                 <ul className="stack">
                   {requests.map((r) => (
                     <li key={r.id} className="card">
-                      <div className="form-inline" style={{ justifyContent: "space-between", alignItems: "flex-start" }}>
-                        <div>
-                          <p className="muted">Type</p>
-                          <strong>{r.requestType}</strong>
-                        </div>
-                        <div>
-                          <p className="muted">Statut</p>
-                          <span>{r.status}</span>
-                        </div>
-                        <div>
-                          <p className="muted">Order</p>
-                          <span>{r.orderId}</span>
-                        </div>
-                      </div>
+                      <p className="muted">Type</p>
+                      <strong>{r.requestType}</strong>
                       {r.dataJson ? (
                         <pre style={{ marginTop: "0.5rem", maxHeight: "240px", overflow: "auto" }}>
                           {JSON.stringify(r.dataJson as any, null, 2) ?? ""}
                         </pre>
-                      ) : null}
-                      {r.dataUrl && !r.dataJson && <p className="muted">dataUrl disponible : {r.dataUrl}</p>}
-                      {r.errorMessage && <p className="error">Erreur : {r.errorMessage}</p>}
+                      ) : (
+                        <p className="muted">Donnée non disponible pour l’instant</p>
+                      )}
                     </li>
                   ))}
                 </ul>
@@ -326,10 +409,6 @@ export default function EnedisSearchContract() {
           </>
         )}
 
-        <details open={rawOpen} onToggle={(e) => setRawOpen((e.target as HTMLDetailsElement).open)} style={{ marginTop: "1rem" }}>
-          <summary>JSON brut</summary>
-          <pre style={{ maxHeight: "240px", overflow: "auto" }}>{JSON.stringify(results, null, 2)}</pre>
-        </details>
       </div>
 
       {showModal && (

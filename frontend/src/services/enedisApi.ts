@@ -53,6 +53,27 @@ export type SwitchgridRequestDto = {
   createdAt: string;
 };
 
+export type EnedisContractDetailsDto = {
+  id: string;
+  prospectId: string;
+  switchgridRequestId: string;
+  prm?: string | null;
+  customerType?: string | null;
+  contractHolderName?: string | null;
+  addressLine2?: string | null;
+  addressLine3?: string | null;
+  addressLine4?: string | null;
+  addressLine5?: string | null;
+  addressLine6?: string | null;
+  subscribedPowerKva?: number | null;
+  tariffOption?: string | null;
+  meterType?: string | null;
+  direction?: string | null;
+  hpHcScheduleJson?: unknown;
+  rawJson?: unknown;
+  createdAt: string;
+};
+
 export async function getAskStatus(askId: string): Promise<{ status?: string }> {
   const url = buildApiUrl(`/api/enedis/ask/${encodeURIComponent(askId)}`);
 
@@ -127,12 +148,22 @@ export async function createAsk(payload: CreateAskPayload): Promise<{ message?: 
   }
 }
 
-export async function getRequests(): Promise<SwitchgridRequestDto[]> {
-  const url = buildApiUrl("/api/enedis/requests");
+export async function getRequests(prospectId: string): Promise<SwitchgridRequestDto[]> {
+  const url = buildApiUrl(`/api/enedis/requests?prospectId=${encodeURIComponent(prospectId)}`);
   const response = await fetch(url);
   if (!response.ok) {
     const text = await response.text();
     throw new Error(text || `Requête échouée (${response.status})`);
   }
   return response.json() as Promise<SwitchgridRequestDto[]>;
+}
+
+export async function getContractDetails(prospectId: string): Promise<EnedisContractDetailsDto> {
+  const url = buildApiUrl(`/api/enedis/contract-details?prospectId=${encodeURIComponent(prospectId)}`);
+  const response = await fetch(url);
+  if (!response.ok) {
+    const text = await response.text();
+    throw new Error(text || `Requête échouée (${response.status})`);
+  }
+  return response.json() as Promise<EnedisContractDetailsDto>;
 }
