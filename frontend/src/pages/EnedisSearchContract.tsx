@@ -3,10 +3,12 @@ import {
   EnedisSearchResult,
   SwitchgridRequestDto,
   EnedisContractDetailsDto,
+  EnedisMonthlyConsumptionDto,
   createAsk,
   getAskStatus,
   getRequests,
   getContractDetails,
+  getMonthlyConsumption,
   searchContract
 } from "../services/enedisApi";
 
@@ -34,6 +36,9 @@ export default function EnedisSearchContract() {
   const [requestsError, setRequestsError] = useState<string | null>(null);
   const [contractDetails, setContractDetails] = useState<EnedisContractDetailsDto | null>(null);
   const [contractError, setContractError] = useState<string | null>(null);
+  const [monthlyData, setMonthlyData] = useState<EnedisMonthlyConsumptionDto[]>([]);
+  const [monthlyError, setMonthlyError] = useState<string | null>(null);
+  const [monthlyLoading, setMonthlyLoading] = useState(false);
 
   const hasC68Success = useMemo(
     () => requests.some((r) => r.requestType === "C68" && r.status === "SUCCESS"),
@@ -55,6 +60,14 @@ export default function EnedisSearchContract() {
     event.preventDefault();
     setError(null);
     setLoading(true);
+    // reset affichages des données reçues
+    setRequests([]);
+    setRequestsError(null);
+    setMonthlyData([]);
+    setMonthlyError(null);
+    setContractDetails(null);
+    setContractError(null);
+    setAskStatus(null);
 
     try {
       const payload =
@@ -85,6 +98,41 @@ export default function EnedisSearchContract() {
     setAskError(null);
     setAskLoading(false);
   };
+
+  const monthlySorted = useMemo(() => {
+    const copy = [...monthlyData];
+    copy.sort((a, b) => (a.year === b.year ? a.month - b.month : a.year - b.year));
+    return copy;
+  }, [monthlyData]);
+
+  const recentYears = useMemo(() => {
+    const years = Array.from(new Set(monthlyData.map((m) => m.year))).sort((a, b) => a - b);
+    if (years.length === 0) return [];
+    const last = years[years.length - 1];
+    return [last - 1, last];
+  }, [monthlyData]);
+
+  const monthlyTwoYears = useMemo(() => {
+    if (recentYears.length === 0) return [];
+    const [prevYear, currentYear] = recentYears;
+    const lookup = new Map<string, number>();
+    for (const m of monthlyData) {
+      if (m.year === prevYear || m.year === currentYear) {
+        lookup.set(`${m.year}-${m.month}`, m.consumptionTotal ?? 0);
+      }
+    }
+    const months: { month: number; prev?: number; current?: number }[] = [];
+    for (let i = 1; i <= 12; i += 1) {
+      months.push({
+        month: i,
+        prev: lookup.get(`${prevYear}-${i}`),
+        current: lookup.get(`${currentYear}-${i}`)
+      });
+    }
+    return months;
+  }, [monthlyData, recentYears]);
+
+  const monthlyMax = 1500; // échelle fixe demandée (kWh)
 
   const handleSendAsk = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -223,6 +271,21 @@ export default function EnedisSearchContract() {
     };
   }, [prospectId, requests]);
 
+  async function handleLoadMonthly() {
+    if (!prospectId) return;
+    setMonthlyLoading(true);
+    setMonthlyError(null);
+    try {
+      const data = await getMonthlyConsumption(prospectId);
+      setMonthlyData(data);
+    } catch (err) {
+      setMonthlyError((err as Error).message);
+      setMonthlyData([]);
+    } finally {
+      setMonthlyLoading(false);
+    }
+  }
+
   return (
     <div className="stack results">
       <div className="panel">
@@ -303,7 +366,7 @@ export default function EnedisSearchContract() {
                       <strong>{contractDetails.meterType ?? "—"}</strong>
                     </div>
                   </div>
-                  {contractDetails.hpHcScheduleJson ? (
+                  {contractDetails.hpHcScheduleJson && contractDetails.tariffOption !== "Heures Pleines" ? (
                     <div>
                       <p className="muted">Horaires HP/HC</p>
                       <pre style={{ maxHeight: "160px", overflow: "auto" }}>
@@ -406,6 +469,83 @@ export default function EnedisSearchContract() {
                 </ul>
               )}
             </div>
+
+            {prospectId && (
+              <div className="panel" style={{ marginTop: "1rem" }}>
+                <div className="form-inline" style={{ justifyContent: "space-between", alignItems: "center" }}>
+                  <h4>Consommation mensuelle</h4>
+                  <button type="button" className="btn secondary" onClick={handleLoadMonthly} disabled={monthlyLoading}>
+                    {monthlyLoading ? "Chargement..." : "Afficher le graph"}
+                  </button>
+                </div>
+                {monthlyError && <p className="error">Erreur : {monthlyError}</p>}
+                {!monthlyError && monthlyData.length === 0 && !monthlyLoading && (
+                  <p className="muted">Aucune donnée mensuelle pour l’instant.</p>
+                )}
+                {monthlyData.length > 0 && (
+                  <div style={{ marginTop: "0.75rem" }}>
+                    {recentYears.length === 0 ? (
+                      <p className="muted">Aucune année disponible.</p>
+                    ) : (
+                      <>
+                        <div style={{ display: "flex", gap: "8px", alignItems: "center", marginBottom: "8px" }}>
+                          <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                            <span style={{ width: "14px", height: "14px", background: "#a3a3a3", display: "inline-block", borderRadius: "3px" }} />
+                            <span className="muted">Année {recentYears[0]}</span>
+                          </div>
+                          <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                            <span style={{ width: "14px", height: "14px", background: "#f97316", display: "inline-block", borderRadius: "3px" }} />
+                            <span className="muted">Année {recentYears[1]}</span>
+                          </div>
+                        </div>
+                        <div style={{ display: "flex", gap: "8px", alignItems: "flex-end", height: "240px", paddingBottom: "8px", overflowX: "auto" }}>
+                          <div style={{ display: "flex", flexDirection: "column", justifyContent: "space-between", height: "220px", paddingRight: "6px", borderRight: "1px solid #ddd", fontSize: "0.75rem" }}>
+                            <span>{monthlyMax.toFixed(0)}</span>
+                            <span>{(monthlyMax / 2).toFixed(0)}</span>
+                            <span>0</span>
+                          </div>
+                          <div style={{ display: "flex", gap: "8px", alignItems: "flex-end", height: "220px", borderBottom: "1px solid #ddd", paddingBottom: "8px" }}>
+                            {monthlyTwoYears.map((m) => {
+                            const bars = [
+                              { year: recentYears[0], value: m.prev, color: "#a3a3a3" },
+                              { year: recentYears[1], value: m.current, color: "#f97316" }
+                            ].filter((b) => b.value !== undefined);
+                            const label = String(m.month).padStart(2, "0");
+                            return (
+                              <div key={`m-${m.month}`} style={{ textAlign: "center", flex: "0 0 48px" }}>
+                                <div style={{ display: "flex", gap: "4px", alignItems: "flex-end", height: "180px" }}>
+                                  {bars.map((b) => {
+                                    const val = b.value as number;
+                                    const pct = monthlyMax > 0 ? Math.max(5, Math.round((val / monthlyMax) * 100)) : 0;
+                                    return (
+                                      <div
+                                        key={`${b.year}-${m.month}`}
+                                        style={{
+                                          background: b.color,
+                                          width: "16px",
+                                          height: `${pct}%`,
+                                          minHeight: "8px",
+                                          borderRadius: "4px 4px 0 0",
+                                          transition: "height 0.2s ease"
+                                        }}
+                                        title={`${label}/${b.year}: ${val.toFixed(2)} kWh`}
+                                      />
+                                    );
+                                  })}
+                                </div>
+                                <div style={{ fontSize: "0.7rem", marginTop: "6px" }}>{label}</div>
+                              </div>
+                            );
+                            })}
+                          </div>
+                        </div>
+                      </>
+                    )}
+                    <p className="muted" style={{ marginTop: "0.5rem" }}>Consommation totale par mois (kWh)</p>
+                  </div>
+                )}
+              </div>
+            )}
           </>
         )}
 

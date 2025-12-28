@@ -74,6 +74,20 @@ export type EnedisContractDetailsDto = {
   createdAt: string;
 };
 
+export type EnedisMonthlyConsumptionDto = {
+  id: string;
+  prospectId: string;
+  switchgridRequestId: string;
+  direction: string;
+  meteringMode: string;
+  year: number;
+  month: number;
+  consumptionTotal: number;
+  consumptionHP?: number | null;
+  consumptionHC?: number | null;
+  createdAt: string;
+};
+
 export async function getAskStatus(askId: string): Promise<{ status?: string }> {
   const url = buildApiUrl(`/api/enedis/ask/${encodeURIComponent(askId)}`);
 
@@ -166,4 +180,14 @@ export async function getContractDetails(prospectId: string): Promise<EnedisCont
     throw new Error(text || `Requête échouée (${response.status})`);
   }
   return response.json() as Promise<EnedisContractDetailsDto>;
+}
+
+export async function getMonthlyConsumption(prospectId: string): Promise<EnedisMonthlyConsumptionDto[]> {
+  const url = buildApiUrl(`/api/enedis/prospects/${encodeURIComponent(prospectId)}/monthly-consumption`);
+  const response = await fetch(url);
+  if (!response.ok) {
+    const text = await response.text();
+    throw new Error(text || `Requête échouée (${response.status})`);
+  }
+  return response.json() as Promise<EnedisMonthlyConsumptionDto[]>;
 }
