@@ -9,6 +9,7 @@ import {
   getRequests,
   getContractDetails,
   getMonthlyConsumption,
+  getMonthlyConsumptionR65,
   searchContract
 } from "../services/enedisApi";
 
@@ -39,6 +40,7 @@ export default function EnedisSearchContract() {
   const [monthlyData, setMonthlyData] = useState<EnedisMonthlyConsumptionDto[]>([]);
   const [monthlyError, setMonthlyError] = useState<string | null>(null);
   const [monthlyLoading, setMonthlyLoading] = useState(false);
+  const [monthlySource, setMonthlySource] = useState<"R64" | "R65">("R64");
 
   const hasC68Success = useMemo(
     () => requests.some((r) => r.requestType === "C68" && r.status === "SUCCESS"),
@@ -472,22 +474,65 @@ export default function EnedisSearchContract() {
 
             {prospectId && (
               <div className="panel" style={{ marginTop: "1rem" }}>
-                <div className="form-inline" style={{ justifyContent: "space-between", alignItems: "center" }}>
+                <div className="form-inline" style={{ justifyContent: "space-between", alignItems: "center", gap: "0.5rem" }}>
                   <h4>Consommation mensuelle</h4>
-                  <button type="button" className="btn secondary" onClick={handleLoadMonthly} disabled={monthlyLoading}>
-                    {monthlyLoading ? "Chargement..." : "Afficher le graph"}
-                  </button>
+                  <div className="form-inline" style={{ gap: "0.5rem" }}>
+                    <button
+                      type="button"
+                      className={`btn ${monthlySource === "R64" ? "btn-orange" : "secondary"}`}
+                      onClick={async () => {
+                        if (!prospectId) return;
+                        setMonthlySource("R64");
+                        setMonthlyLoading(true);
+                        setMonthlyError(null);
+                        try {
+                          const data = await getMonthlyConsumption(prospectId);
+                          setMonthlyData(data);
+                        } catch (err) {
+                          setMonthlyError((err as Error).message);
+                          setMonthlyData([]);
+                        } finally {
+                          setMonthlyLoading(false);
+                        }
+                      }}
+                      disabled={monthlyLoading}
+                    >
+                      AffichageDonnéeR64
+                    </button>
+                    <button
+                      type="button"
+                      className={`btn ${monthlySource === "R65" ? "btn-orange" : "secondary"}`}
+                      onClick={async () => {
+                        if (!prospectId) return;
+                        setMonthlySource("R65");
+                        setMonthlyLoading(true);
+                        setMonthlyError(null);
+                        try {
+                          const data = await getMonthlyConsumptionR65(prospectId);
+                          setMonthlyData(data);
+                        } catch (err) {
+                          setMonthlyError((err as Error).message);
+                          setMonthlyData([]);
+                        } finally {
+                          setMonthlyLoading(false);
+                        }
+                      }}
+                      disabled={monthlyLoading}
+                    >
+                      AffichageDonnéeR65
+                    </button>
+                  </div>
                 </div>
                 {monthlyError && <p className="error">Erreur : {monthlyError}</p>}
                 {!monthlyError && monthlyData.length === 0 && !monthlyLoading && (
                   <p className="muted">Aucune donnée mensuelle pour l’instant.</p>
                 )}
-                {monthlyData.length > 0 && (
-                  <div style={{ marginTop: "0.75rem" }}>
-                    {recentYears.length === 0 ? (
-                      <p className="muted">Aucune année disponible.</p>
-                    ) : (
-                      <>
+            {monthlyData.length > 0 && (
+              <div style={{ marginTop: "0.75rem" }}>
+                {recentYears.length === 0 ? (
+                  <p className="muted">Aucune année disponible.</p>
+                ) : (
+                  <>
                         <div style={{ display: "flex", gap: "8px", alignItems: "center", marginBottom: "8px" }}>
                           <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
                             <span style={{ width: "14px", height: "14px", background: "#a3a3a3", display: "inline-block", borderRadius: "3px" }} />
@@ -514,25 +559,25 @@ export default function EnedisSearchContract() {
                             return (
                               <div key={`m-${m.month}`} style={{ textAlign: "center", flex: "0 0 48px" }}>
                                 <div style={{ display: "flex", gap: "4px", alignItems: "flex-end", height: "180px" }}>
-                                  {bars.map((b) => {
-                                    const val = b.value as number;
-                                    const pct = monthlyMax > 0 ? Math.max(5, Math.round((val / monthlyMax) * 100)) : 0;
-                                    return (
-                                      <div
-                                        key={`${b.year}-${m.month}`}
-                                        style={{
-                                          background: b.color,
-                                          width: "16px",
-                                          height: `${pct}%`,
-                                          minHeight: "8px",
-                                          borderRadius: "4px 4px 0 0",
-                                          transition: "height 0.2s ease"
-                                        }}
-                                        title={`${label}/${b.year}: ${val.toFixed(2)} kWh`}
-                                      />
-                                    );
-                                  })}
-                                </div>
+                            {bars.map((b) => {
+                              const val = b.value as number;
+                              const pct = monthlyMax > 0 ? Math.max(5, Math.round((val / monthlyMax) * 100)) : 0;
+                              return (
+                                <div
+                                  key={`${b.year}-${m.month}`}
+                                  style={{
+                                    background: b.color,
+                                    width: "16px",
+                                    height: `${pct}%`,
+                                    minHeight: "8px",
+                                    borderRadius: "4px 4px 0 0",
+                                    transition: "height 0.2s ease"
+                                  }}
+                                  title={`${label}/${b.year}: ${val.toFixed(0)} kWh`}
+                                />
+                              );
+                            })}
+                          </div>
                                 <div style={{ fontSize: "0.7rem", marginTop: "6px" }}>{label}</div>
                               </div>
                             );

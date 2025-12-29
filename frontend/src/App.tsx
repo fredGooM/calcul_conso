@@ -14,6 +14,7 @@ import {
 import { Bar, BarChart, CartesianGrid, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis, Cell } from "recharts";
 import "./index.css";
 import EnedisSearchContract from "./pages/EnedisSearchContract";
+import CheckRequest from "./pages/CheckRequest";
 
 const defaultHouse: HouseInput = {
   annual_consumption: 10000,
@@ -65,7 +66,7 @@ function App() {
   const [climateZone, setClimateZone] = useState<Climate | null>(null);
   const [climateLoading, setClimateLoading] = useState(false);
   const [climateError, setClimateError] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<"form" | "enedis" | "viz" | "solar" | "config">("form");
+  const [activeTab, setActiveTab] = useState<"form" | "enedis" | "viz" | "solar" | "config" | "check">("form");
   const [activeSubTab, setActiveSubTab] = useState<"viz" | "solar">("viz");
   const [configData, setConfigData] = useState<{
     equipements?: EquipementDescriptionEntry[];
@@ -186,6 +187,9 @@ function App() {
             <button className={activeTab === "enedis" ? "tab active" : "tab"} onClick={() => setActiveTab("enedis")}>
               Enedis
             </button>
+            <button className={activeTab === "check" ? "tab active" : "tab"} onClick={() => setActiveTab("check")}>
+              CheckRequest
+            </button>
             <button className={activeTab === "viz" ? "tab active" : "tab"} onClick={() => setActiveTab("viz")} disabled={!simulationState.data}>
               Consommations
             </button>
@@ -267,6 +271,7 @@ function App() {
           </div>
         )}
         {activeTab === "enedis" && <EnedisSearchContract />}
+        {activeTab === "check" && <CheckRequest />}
         {activeTab === "solar" && (
           <div className="stack results">
             {!simulationState.data && <p className="muted">Lancez une simulation pour visualiser les consommations.</p>}

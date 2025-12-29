@@ -42,6 +42,7 @@ export type CreateAskPayload = {
 export type SwitchgridRequestDto = {
   id: string;
   orderId: string;
+  order?: { prospectId: string };
   switchgridRequestId?: string | null;
   requestType: string;
   status: string;
@@ -184,6 +185,16 @@ export async function getContractDetails(prospectId: string): Promise<EnedisCont
 
 export async function getMonthlyConsumption(prospectId: string): Promise<EnedisMonthlyConsumptionDto[]> {
   const url = buildApiUrl(`/api/enedis/prospects/${encodeURIComponent(prospectId)}/monthly-consumption`);
+  const response = await fetch(url);
+  if (!response.ok) {
+    const text = await response.text();
+    throw new Error(text || `Requête échouée (${response.status})`);
+  }
+  return response.json() as Promise<EnedisMonthlyConsumptionDto[]>;
+}
+
+export async function getMonthlyConsumptionR65(prospectId: string): Promise<EnedisMonthlyConsumptionDto[]> {
+  const url = buildApiUrl(`/api/enedis/prospects/${encodeURIComponent(prospectId)}/monthly-consumption2`);
   const response = await fetch(url);
   if (!response.ok) {
     const text = await response.text();
