@@ -10,7 +10,7 @@ import {
   getDailyConsoLoadcurve
 } from "../services/enedisApi";
 
-const DEFAULT_ORDER_ID = "30d1023a-3d43-457e-9f61-4eb9a79143cb";
+const DEFAULT_ORDER_ID = "ff6e7d44-9856-47f5-af44-a138b3887a04";
 
 export default function CheckRequest() {
   const [orderId, setOrderId] = useState(DEFAULT_ORDER_ID);

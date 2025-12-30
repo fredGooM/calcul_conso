@@ -4,12 +4,15 @@ import {
   SwitchgridRequestDto,
   EnedisContractDetailsDto,
   EnedisMonthlyConsumptionDto,
+  EnedisDailyConso3Dto,
   createAsk,
   getAskStatus,
   getRequests,
   getContractDetails,
   getMonthlyConsumption,
   getMonthlyConsumptionR65,
+  getMonthlyConsumptionLoadcurve,
+  getDailyConsoLoadcurve,
   searchContract
 } from "../services/enedisApi";
 
@@ -40,7 +43,10 @@ export default function EnedisSearchContract() {
   const [monthlyData, setMonthlyData] = useState<EnedisMonthlyConsumptionDto[]>([]);
   const [monthlyError, setMonthlyError] = useState<string | null>(null);
   const [monthlyLoading, setMonthlyLoading] = useState(false);
-  const [monthlySource, setMonthlySource] = useState<"R64" | "R65">("R64");
+  const [monthlySource, setMonthlySource] = useState<"R64" | "R65" | "LC">("R64");
+  const [dailyLC, setDailyLC] = useState<EnedisDailyConso3Dto[]>([]);
+  const [dailyLCError, setDailyLCError] = useState<string | null>(null);
+  const [dailyLCLoading, setDailyLCLoading] = useState(false);
 
   const hasC68Success = useMemo(
     () => requests.some((r) => r.requestType === "C68" && r.status === "SUCCESS"),
@@ -107,38 +113,17 @@ export default function EnedisSearchContract() {
     return copy;
   }, [monthlyData]);
 
-  const recentYears = useMemo(() => {
-    const years = Array.from(new Set(monthlyData.map((m) => m.year))).sort((a, b) => a - b);
-    if (years.length === 0) return [];
-    const last = years[years.length - 1];
-    return [last - 1, last];
-  }, [monthlyData]);
-
-  const monthlyTwoYears = useMemo(() => {
-    if (recentYears.length === 0) return [];
-    const [prevYear, currentYear] = recentYears;
-    const lookup = new Map<string, number>();
-    for (const m of monthlyData) {
-      if (m.year === prevYear || m.year === currentYear) {
-        lookup.set(`${m.year}-${m.month}`, m.consumptionTotal ?? 0);
-      }
-    }
-    const months: { month: number; prev?: number; current?: number }[] = [];
-    for (let i = 1; i <= 12; i += 1) {
-      months.push({
-        month: i,
-        prev: lookup.get(`${prevYear}-${i}`),
-        current: lookup.get(`${currentYear}-${i}`)
-      });
-    }
-    return months;
-  }, [monthlyData, recentYears]);
+  const monthlyDisplay = useMemo(() => {
+    // afficher les 12 derniers mois pour éviter un écrasement des barres par des valeurs anciennes hors plage
+    const last12 = monthlySorted.slice(-12);
+    return last12.length > 0 ? last12 : monthlySorted;
+  }, [monthlySorted]);
 
   const monthlyMax = useMemo(() => {
-    const vals = monthlyData.map((m) => m.consumptionTotal ?? 0);
+    const vals = monthlyDisplay.map((m) => Math.max(m.consumptionTotal ?? 0, m.consumptionDaytime ?? 0));
     const maxVal = vals.length ? Math.max(...vals) : 0;
     return Math.max(1, maxVal);
-  }, [monthlyData]);
+  }, [monthlyDisplay]);
 
   const handleSendAsk = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -489,9 +474,11 @@ export default function EnedisSearchContract() {
                         setMonthlySource("R64");
                         setMonthlyLoading(true);
                         setMonthlyError(null);
+                        setDailyLCError(null);
                         try {
                           const data = await getMonthlyConsumption(prospectId);
                           setMonthlyData(data);
+                          setDailyLC([]);
                         } catch (err) {
                           setMonthlyError((err as Error).message);
                           setMonthlyData([]);
@@ -511,9 +498,11 @@ export default function EnedisSearchContract() {
                         setMonthlySource("R65");
                         setMonthlyLoading(true);
                         setMonthlyError(null);
+                        setDailyLCError(null);
                         try {
                           const data = await getMonthlyConsumptionR65(prospectId);
                           setMonthlyData(data);
+                          setDailyLC([]);
                         } catch (err) {
                           setMonthlyError((err as Error).message);
                           setMonthlyData([]);
@@ -525,72 +514,151 @@ export default function EnedisSearchContract() {
                     >
                       AffichageDonnéeR65
                     </button>
+                    <button
+                      type="button"
+                      className={`btn ${monthlySource === "LC" ? "btn-orange" : "secondary"}`}
+                      onClick={async () => {
+                        if (!prospectId) return;
+                        setMonthlySource("LC");
+                        setMonthlyLoading(true);
+                        setDailyLCLoading(true);
+                        setMonthlyError(null);
+                        setDailyLCError(null);
+                        try {
+                          const data = await getMonthlyConsumptionLoadcurve(prospectId);
+                          setMonthlyData(data);
+                          const daily = await getDailyConsoLoadcurve(prospectId);
+                          setDailyLC(daily);
+                        } catch (err) {
+                          const msg = (err as Error).message;
+                          setMonthlyError(msg);
+                          setDailyLCError(msg);
+                          setMonthlyData([]);
+                          setDailyLC([]);
+                        } finally {
+                          setMonthlyLoading(false);
+                          setDailyLCLoading(false);
+                        }
+                      }}
+                      disabled={monthlyLoading || dailyLCLoading}
+                    >
+                      AffichageDonnéeLoadcurveMois
+                    </button>
+                    <button
+                      type="button"
+                      className="btn secondary"
+                      onClick={async () => {
+                        if (!prospectId) return;
+                        setDailyLCLoading(true);
+                        setDailyLCError(null);
+                        try {
+                          const daily = await getDailyConsoLoadcurve(prospectId);
+                          setDailyLC(daily);
+                          setMonthlySource("LC");
+                        } catch (err) {
+                          setDailyLCError((err as Error).message);
+                          setDailyLC([]);
+                        } finally {
+                          setDailyLCLoading(false);
+                        }
+                      }}
+                      disabled={dailyLCLoading}
+                    >
+                      AffichageDonnéeLoadcurveJour
+                    </button>
                   </div>
                 </div>
                 {monthlyError && <p className="error">Erreur : {monthlyError}</p>}
                 {!monthlyError && monthlyData.length === 0 && !monthlyLoading && (
                   <p className="muted">Aucune donnée mensuelle pour l’instant.</p>
                 )}
-            {monthlyData.length > 0 && (
-              <div style={{ marginTop: "0.75rem" }}>
-                {recentYears.length === 0 ? (
-                  <p className="muted">Aucune année disponible.</p>
-                ) : (
-                  <>
-                        <div style={{ display: "flex", gap: "8px", alignItems: "center", marginBottom: "8px" }}>
-                          <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
-                            <span style={{ width: "14px", height: "14px", background: "#a3a3a3", display: "inline-block", borderRadius: "3px" }} />
-                            <span className="muted">Année {recentYears[0]}</span>
-                          </div>
-                          <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
-                            <span style={{ width: "14px", height: "14px", background: "#f97316", display: "inline-block", borderRadius: "3px" }} />
-                            <span className="muted">Année {recentYears[1]}</span>
-                          </div>
-                        </div>
-                        <div style={{ display: "flex", gap: "8px", alignItems: "flex-end", height: "240px", paddingBottom: "8px", overflowX: "auto" }}>
-                          <div style={{ display: "flex", flexDirection: "column", justifyContent: "space-between", height: "220px", paddingRight: "6px", borderRight: "1px solid #ddd", fontSize: "0.75rem" }}>
-                            <span>{monthlyMax.toFixed(0)}</span>
-                            <span>{(monthlyMax / 2).toFixed(0)}</span>
-                            <span>0</span>
-                          </div>
-                          <div style={{ display: "flex", gap: "8px", alignItems: "flex-end", height: "220px", borderBottom: "1px solid #ddd", paddingBottom: "8px" }}>
-                            {monthlyTwoYears.map((m) => {
-                            const bars = [
-                              { year: recentYears[0], value: m.prev, color: "#a3a3a3" },
-                              { year: recentYears[1], value: m.current, color: "#f97316" }
-                            ].filter((b) => b.value !== undefined);
-                            const label = String(m.month).padStart(2, "0");
-                            return (
-                              <div key={`m-${m.month}`} style={{ textAlign: "center", flex: "0 0 48px" }}>
-                                <div style={{ display: "flex", gap: "4px", alignItems: "flex-end", height: "180px" }}>
-                            {bars.map((b) => {
-                              const val = b.value as number;
-                              const pct = monthlyMax > 0 ? Math.max(5, Math.round((val / monthlyMax) * 100)) : 0;
-                              return (
+                {monthlyDisplay.length > 0 && (
+                  <div style={{ marginTop: "0.75rem" }}>
+                    <div style={{ display: "flex", gap: "12px", alignItems: "center", marginBottom: "8px" }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                        <span style={{ width: "14px", height: "14px", background: "#f97316", display: "inline-block", borderRadius: "3px" }} />
+                        <span className="muted">Total</span>
+                      </div>
+                      <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                        <span style={{ width: "14px", height: "14px", background: "#22c55e", display: "inline-block", borderRadius: "3px" }} />
+                        <span className="muted">Daytime</span>
+                      </div>
+                    </div>
+                    <div style={{ display: "flex", gap: "8px", alignItems: "flex-end", height: "240px", paddingBottom: "8px", overflowX: "auto" }}>
+                      <div style={{ display: "flex", flexDirection: "column", justifyContent: "space-between", height: "220px", paddingRight: "6px", borderRight: "1px solid #ddd", fontSize: "0.75rem" }}>
+                        <span>{monthlyMax.toFixed(0)}</span>
+                        <span>{(monthlyMax / 2).toFixed(0)}</span>
+                        <span>0</span>
+                      </div>
+                      <div style={{ display: "flex", gap: "10px", alignItems: "flex-end", height: "220px", borderBottom: "1px solid #ddd", paddingBottom: "8px" }}>
+                        {monthlyDisplay.map((m) => {
+                          const total = m.consumptionTotal ?? 0;
+                          const daytime = m.consumptionDaytime ?? 0;
+                          const pctTotal = monthlyMax > 0 ? Math.max(5, Math.round((total / monthlyMax) * 100)) : 0;
+                          const pctDay = monthlyMax > 0 ? Math.round((daytime / monthlyMax) * 100) : 0;
+                          const label = `${String(m.month).padStart(2, "0")}/${m.year}`;
+                          return (
+                            <div key={`m-${m.year}-${m.month}`} style={{ textAlign: "center", flex: "0 0 56px" }}>
+                              <div style={{ display: "flex", gap: "6px", alignItems: "flex-end", height: "180px" }}>
                                 <div
-                                  key={`${b.year}-${m.month}`}
                                   style={{
-                                    background: b.color,
-                                    width: "16px",
-                                    height: `${pct}%`,
+                                    background: "#f97316",
+                                    width: "18px",
+                                    height: `${pctTotal}%`,
                                     minHeight: "8px",
                                     borderRadius: "4px 4px 0 0",
                                     transition: "height 0.2s ease"
                                   }}
-                                  title={`${label}/${b.year}: ${val.toFixed(0)} kWh`}
+                                  title={`${label} Total: ${total.toFixed(0)} kWh`}
                                 />
-                              );
-                            })}
-                          </div>
-                                <div style={{ fontSize: "0.7rem", marginTop: "6px" }}>{label}</div>
+                                <div
+                                  style={{
+                                    background: "#22c55e",
+                                    width: "18px",
+                                    height: `${pctDay}%`,
+                                    minHeight: pctDay > 0 ? "6px" : "0",
+                                    borderRadius: "4px 4px 0 0",
+                                    transition: "height 0.2s ease"
+                                  }}
+                                  title={`${label} Daytime: ${daytime.toFixed(0)} kWh`}
+                                />
                               </div>
-                            );
-                            })}
-                          </div>
-                        </div>
-                      </>
-                    )}
-                    <p className="muted" style={{ marginTop: "0.5rem" }}>Consommation totale par mois (kWh)</p>
+                              <div style={{ fontSize: "0.7rem", marginTop: "6px" }}>{label}</div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                    <p className="muted" style={{ marginTop: "0.5rem" }}>Consommation totale et Daytime par mois (kWh)</p>
+                  </div>
+                )}
+                {dailyLCError && <p className="error">Erreur loadcurve jour : {dailyLCError}</p>}
+                {!dailyLCError && dailyLC.length > 0 && (
+                  <div style={{ marginTop: "1rem" }}>
+                    <h5>Consommations journalières (Loadcurve)</h5>
+                    <table className="table">
+                      <thead>
+                        <tr>
+                          <th>Date</th>
+                          <th>Total (kWh)</th>
+                          <th>HP (kWh)</th>
+                          <th>HC (kWh)</th>
+                          <th>Daytime 9-18 (kWh)</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {dailyLC.slice(0, 30).map((d) => (
+                          <tr key={d.id}>
+                            <td>{new Date(d.date).toLocaleDateString()}</td>
+                            <td>{d.EnergyTotalKwh !== undefined && d.EnergyTotalKwh !== null ? d.EnergyTotalKwh.toFixed(1) : "—"}</td>
+                            <td>{d.EnergyHpKwh !== undefined && d.EnergyHpKwh !== null ? d.EnergyHpKwh.toFixed(1) : "—"}</td>
+                            <td>{d.EnergyHcKwh !== undefined && d.EnergyHcKwh !== null ? d.EnergyHcKwh.toFixed(1) : "—"}</td>
+                            <td>{d.EnergyDayTimeKwh !== undefined && d.EnergyDayTimeKwh !== null ? d.EnergyDayTimeKwh.toFixed(1) : "—"}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                    {dailyLC.length > 30 && <p className="muted">Affichage limité aux 30 derniers jours.</p>}
                   </div>
                 )}
               </div>
