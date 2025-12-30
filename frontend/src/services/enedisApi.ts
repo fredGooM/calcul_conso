@@ -86,7 +86,22 @@ export type EnedisMonthlyConsumptionDto = {
   consumptionTotal: number;
   consumptionHP?: number | null;
   consumptionHC?: number | null;
+  consumptionDaytime?: number | null;
   createdAt: string;
+};
+
+export type EnedisDailyConso3Dto = {
+  id: string;
+  prospectId: string;
+  switchgridRequestId: string;
+  prm?: string | null;
+  date: string;
+  direction?: string | null;
+  EnergyTotalKwh?: number | null;
+  EnergyHpKwh?: number | null;
+  EnergyHcKwh?: number | null;
+  EnergyDayTimeKwh?: number | null;
+  consoByHourTable?: { id: string; hour: number; energy?: number | null }[];
 };
 
 export async function getAskStatus(askId: string): Promise<{ status?: string }> {
@@ -201,4 +216,24 @@ export async function getMonthlyConsumptionR65(prospectId: string): Promise<Ened
     throw new Error(text || `Requête échouée (${response.status})`);
   }
   return response.json() as Promise<EnedisMonthlyConsumptionDto[]>;
+}
+
+export async function getMonthlyConsumptionLoadcurve(prospectId: string): Promise<EnedisMonthlyConsumptionDto[]> {
+  const url = buildApiUrl(`/api/enedis/prospects/${encodeURIComponent(prospectId)}/monthly-consumption3`);
+  const response = await fetch(url);
+  if (!response.ok) {
+    const text = await response.text();
+    throw new Error(text || `Requête échouée (${response.status})`);
+  }
+  return response.json() as Promise<EnedisMonthlyConsumptionDto[]>;
+}
+
+export async function getDailyConsoLoadcurve(prospectId: string): Promise<EnedisDailyConso3Dto[]> {
+  const url = buildApiUrl(`/api/enedis/prospects/${encodeURIComponent(prospectId)}/daily-conso3`);
+  const response = await fetch(url);
+  if (!response.ok) {
+    const text = await response.text();
+    throw new Error(text || `Requête échouée (${response.status})`);
+  }
+  return response.json() as Promise<EnedisDailyConso3Dto[]>;
 }

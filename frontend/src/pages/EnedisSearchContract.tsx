@@ -134,7 +134,11 @@ export default function EnedisSearchContract() {
     return months;
   }, [monthlyData, recentYears]);
 
-  const monthlyMax = 1500; // échelle fixe demandée (kWh)
+  const monthlyMax = useMemo(() => {
+    const vals = monthlyData.map((m) => m.consumptionTotal ?? 0);
+    const maxVal = vals.length ? Math.max(...vals) : 0;
+    return Math.max(1, maxVal);
+  }, [monthlyData]);
 
   const handleSendAsk = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
